@@ -9,6 +9,7 @@ export interface AuthenticatedDevice {
 export const CurrentDevice = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): AuthenticatedDevice => {
     const request = ctx.switchToHttp().getRequest();
-    return request.device as AuthenticatedDevice;
+    // Passport's agent-jwt strategy puts the value returned by validate() on request.user.
+    return request.user as AuthenticatedDevice;
   },
 );
