@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
+import { TranslationKey } from '@/lib/locales/en';
+import { useDevices } from '@/lib/useDevices';
+import { formatBytes } from '@/lib/events';
+import { Badge, EmptyRow, ErrorBanner, LoadingRow, PageHeader, Timestamp, Tone } from '@/lib/ui';
 
 interface FileEventRow {
   id: string;
@@ -18,21 +23,16 @@ interface FileEventRow {
   };
 }
 
-const ACTION_LABELS: Record<string, string> = {
-  'file.created': 'Created',
-  'file.modified': 'Modified',
-  'file.renamed': 'Renamed',
-  'file.deleted': 'Deleted',
+const ACTION_TONE: Record<string, Tone> = {
+  'file.created': 'green',
+  'file.modified': 'blue',
+  'file.renamed': 'amber',
+  'file.deleted': 'red',
 };
 
-function formatSize(bytes?: number) {
-  if (bytes === undefined) return '—';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export default function FilesPage() {
+  const { t } = useI18n();
+  const { nameOf } = useDevices();
   const [events, setEvents] = useState<FileEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,12 +44,14 @@ export default function FilesPage() {
           apiFetch<FileEventRow[]>(`/events?eventType=${eventType}&take=25`),
         ),
       );
-      const merged = [...created, ...modified, ...renamed, ...deleted].sort(
-        (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+      setEvents(
+        [...created, ...modified, ...renamed, ...deleted].sort(
+          (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+        ),
       );
-      setEvents(merged);
+      setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load file activity');
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     } finally {
       setLoading(false);
     }
@@ -59,48 +61,49 @@ export default function FilesPage() {
     load();
     const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div>
-      <h1 className="mb-1 text-lg font-semibold">File activity</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        Metadata only (path, name, size, timestamp) from watched folders — file contents are never read.
-      </p>
+      <PageHeader
+        title={t('files.title')}
+        subtitle={t('files.subtitle')}
+        meta={t('common.refreshEvery', { seconds: 15 })}
+      />
+      <ErrorBanner message={error} />
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
+      <div className="table-wrap">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-2 font-medium">Time</th>
-              <th className="px-4 py-2 font-medium">Device</th>
-              <th className="px-4 py-2 font-medium">User</th>
-              <th className="px-4 py-2 font-medium">Action</th>
-              <th className="px-4 py-2 font-medium">Path</th>
-              <th className="px-4 py-2 font-medium">Size</th>
+              <th>{t('common.time')}</th>
+              <th>{t('common.device')}</th>
+              <th>{t('common.user')}</th>
+              <th>{t('files.col.action')}</th>
+              <th>{t('files.col.path')}</th>
+              <th>{t('files.col.size')}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={6}>Loading...</td></tr>
-            )}
-            {!loading && events.length === 0 && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={6}>No file activity yet.</td></tr>
-            )}
+            {loading && <LoadingRow colSpan={6} />}
+            {!loading && events.length === 0 && <EmptyRow colSpan={6} icon="file">{t('files.empty')}</EmptyRow>}
             {events.map((e) => (
-              <tr key={e.id} className="border-t border-slate-100 align-top">
-                <td className="whitespace-nowrap px-4 py-2">{new Date(e.occurredAt).toLocaleString()}</td>
-                <td className="px-4 py-2 font-mono text-xs">{e.deviceId.slice(0, 8)}</td>
-                <td className="px-4 py-2">{e.data.user ?? '—'}</td>
-                <td className="px-4 py-2">{ACTION_LABELS[e.eventType] ?? e.eventType}</td>
-                <td className="max-w-md truncate px-4 py-2 font-mono text-xs text-slate-500" title={e.data.path}>
+              <tr key={e.id} className="align-top hover:bg-slate-50">
+                <td><Timestamp iso={e.occurredAt} /></td>
+                <td className="font-medium text-slate-800">{nameOf(e.deviceId)}</td>
+                <td className="text-slate-600">{e.data.user ?? '—'}</td>
+                <td>
+                  <Badge tone={ACTION_TONE[e.eventType] ?? 'slate'}>
+                    {t(`files.action.${e.eventType}` as TranslationKey)}
+                  </Badge>
+                </td>
+                <td className="max-w-md truncate font-mono text-xs text-slate-600" title={e.data.path}>
                   {e.eventType === 'file.renamed' && e.data.previousPath
                     ? `${e.data.previousPath} → ${e.data.path}`
                     : e.data.path ?? '—'}
                 </td>
-                <td className="px-4 py-2">{formatSize(e.data.sizeBytes)}</td>
+                <td className="whitespace-nowrap text-slate-600">{e.data.sizeBytes != null ? formatBytes(e.data.sizeBytes) : '—'}</td>
               </tr>
             ))}
           </tbody>

@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
+import { TranslationKey } from '@/lib/locales/en';
+import { useDevices } from '@/lib/useDevices';
+import { formatBytes } from '@/lib/events';
+import { Badge, EmptyRow, ErrorBanner, LoadingRow, PageHeader, Timestamp, Tone } from '@/lib/ui';
 
 interface UsbEventRow {
   id: string;
@@ -22,18 +27,11 @@ interface UsbEventRow {
   };
 }
 
-const DECISION_STYLES: Record<string, string> = {
-  ALLOWED: 'bg-green-100 text-green-700',
-  MONITORED: 'bg-slate-100 text-slate-600',
-  BLOCKED: 'bg-red-100 text-red-700',
-};
-
-function formatCapacity(bytes?: number) {
-  if (!bytes) return '—';
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
+const DECISION_TONE: Record<string, Tone> = { ALLOWED: 'green', MONITORED: 'slate', BLOCKED: 'red' };
 
 export default function UsbPage() {
+  const { t, tOr } = useI18n();
+  const { nameOf } = useDevices();
   const [events, setEvents] = useState<UsbEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,12 +42,12 @@ export default function UsbPage() {
         apiFetch<UsbEventRow[]>('/events?eventType=usb.connected&take=50'),
         apiFetch<UsbEventRow[]>('/events?eventType=usb.disconnected&take=50'),
       ]);
-      const merged = [...connected, ...disconnected].sort(
-        (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+      setEvents(
+        [...connected, ...disconnected].sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()),
       );
-      setEvents(merged);
+      setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load USB activity');
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     } finally {
       setLoading(false);
     }
@@ -59,49 +57,49 @@ export default function UsbPage() {
     load();
     const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div>
-      <h1 className="mb-6 text-lg font-semibold">USB devices</h1>
+      <PageHeader title={t('usb.title')} subtitle={t('usb.subtitle')} meta={t('common.refreshEvery', { seconds: 15 })} />
+      <ErrorBanner message={error} />
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
+      <div className="table-wrap">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-2 font-medium">Time</th>
-              <th className="px-4 py-2 font-medium">Device</th>
-              <th className="px-4 py-2 font-medium">User</th>
-              <th className="px-4 py-2 font-medium">Event</th>
-              <th className="px-4 py-2 font-medium">Model</th>
-              <th className="px-4 py-2 font-medium">Serial</th>
-              <th className="px-4 py-2 font-medium">Capacity</th>
-              <th className="px-4 py-2 font-medium">Policy</th>
+              <th>{t('common.time')}</th>
+              <th>{t('common.device')}</th>
+              <th>{t('common.user')}</th>
+              <th>{t('usb.col.event')}</th>
+              <th>{t('usb.col.model')}</th>
+              <th>{t('usb.col.serial')}</th>
+              <th>{t('usb.col.capacity')}</th>
+              <th>{t('usb.col.policy')}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={8}>Loading...</td></tr>
-            )}
-            {!loading && events.length === 0 && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={8}>No USB activity yet.</td></tr>
-            )}
+            {loading && <LoadingRow colSpan={8} />}
+            {!loading && events.length === 0 && <EmptyRow colSpan={8} icon="usb">{t('usb.empty')}</EmptyRow>}
             {events.map((e) => (
-              <tr key={e.id} className="border-t border-slate-100 align-top">
-                <td className="whitespace-nowrap px-4 py-2">{new Date(e.occurredAt).toLocaleString()}</td>
-                <td className="px-4 py-2 font-mono text-xs">{e.deviceId.slice(0, 8)}</td>
-                <td className="px-4 py-2">{e.data.user ?? '—'}</td>
-                <td className="px-4 py-2">{e.eventType === 'usb.connected' ? 'Connected' : 'Disconnected'}</td>
-                <td className="px-4 py-2">{e.data.model ?? '—'}</td>
-                <td className="px-4 py-2 font-mono text-xs">{e.data.serial ?? '—'}</td>
-                <td className="px-4 py-2">{formatCapacity(e.data.capacityBytes)}</td>
-                <td className="px-4 py-2">
+              <tr key={e.id} className="align-top hover:bg-slate-50">
+                <td><Timestamp iso={e.occurredAt} /></td>
+                <td className="font-medium text-slate-800">{nameOf(e.deviceId)}</td>
+                <td className="text-slate-600">{e.data.user ?? '—'}</td>
+                <td>
+                  <Badge tone={e.eventType === 'usb.connected' ? 'blue' : 'slate'}>
+                    {e.eventType === 'usb.connected' ? t('usb.connected') : t('usb.disconnected')}
+                  </Badge>
+                </td>
+                <td>{e.data.model ?? '—'}</td>
+                <td className="font-mono text-xs text-slate-600">{e.data.serial ?? '—'}</td>
+                <td className="whitespace-nowrap text-slate-600">{e.data.capacityBytes ? formatBytes(e.data.capacityBytes) : '—'}</td>
+                <td>
                   {e.data.policyDecision && (
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${DECISION_STYLES[e.data.policyDecision] ?? 'bg-slate-100'}`}>
-                      {e.data.policyDecision}
-                    </span>
+                    <Badge tone={DECISION_TONE[e.data.policyDecision] ?? 'slate'}>
+                      {tOr(`usb.decision.${e.data.policyDecision}` as TranslationKey, e.data.policyDecision)}
+                    </Badge>
                   )}
                 </td>
               </tr>

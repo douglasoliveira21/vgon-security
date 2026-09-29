@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
+import { TranslationKey } from '@/lib/locales/en';
+import { Badge, EmptyRow, ErrorBanner, LoadingRow, PageHeader } from '@/lib/ui';
 
 interface PolicyRow {
   id: string;
@@ -27,6 +30,7 @@ const SETTINGS_PLACEHOLDER: Record<string, string> = {
 };
 
 export default function PoliciesPage() {
+  const { t, formatDateTime } = useI18n();
   const [policies, setPolicies] = useState<PolicyRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,10 +43,9 @@ export default function PoliciesPage() {
 
   async function load() {
     try {
-      const data = await apiFetch<PolicyRow[]>('/policies');
-      setPolicies(data);
+      setPolicies(await apiFetch<PolicyRow[]>('/policies'));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load policies');
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     } finally {
       setLoading(false);
     }
@@ -50,6 +53,7 @@ export default function PoliciesPage() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -59,7 +63,7 @@ export default function PoliciesPage() {
     try {
       settings = JSON.parse(settingsText);
     } catch {
-      setError('Settings must be valid JSON');
+      setError(t('policies.invalidJson'));
       return;
     }
 
@@ -71,7 +75,7 @@ export default function PoliciesPage() {
       });
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save policy');
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     } finally {
       setSubmitting(false);
     }
@@ -82,95 +86,99 @@ export default function PoliciesPage() {
       await apiFetch(`/policies/${id}`, { method: 'DELETE' });
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete policy');
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     }
   }
 
   return (
     <div>
-      <h1 className="mb-1 text-lg font-semibold">Policies</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        Tenant → Site → Group → Device. A more specific override only replaces the fields it sets — everything else falls through to the next level, and ultimately to the Agent&apos;s own defaults.
-      </p>
+      <PageHeader title={t('policies.title')} subtitle={t('policies.subtitle')} />
 
-      <form onSubmit={handleSubmit} className="mb-8 rounded-xl border border-slate-200 bg-white p-4">
-        <div className="mb-3 grid grid-cols-4 gap-3">
+      <form onSubmit={handleSubmit} className="card mb-8 p-5">
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Scope</label>
-            <select value={scope} onChange={(e) => setScope(e.target.value)} className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm">
-              {SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
+            <label className="label">{t('policies.scope')}</label>
+            <select value={scope} onChange={(e) => setScope(e.target.value)} className="input">
+              {SCOPES.map((s) => (
+                <option key={s} value={s}>{t(`policies.scope.${s}` as TranslationKey)}</option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Scope ID {scope === 'TENANT' && '(n/a)'}</label>
+            <label className="label">
+              {t('policies.scopeId')} {scope === 'TENANT' && `(${t('policies.scopeId.na')})`}
+            </label>
             <input
               value={scopeId}
               onChange={(e) => setScopeId(e.target.value)}
               disabled={scope === 'TENANT'}
-              placeholder={scope === 'TENANT' ? '—' : `${scope.toLowerCase()} id`}
-              className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm disabled:bg-slate-100"
+              placeholder={scope === 'TENANT' ? '—' : 'id'}
+              className="input"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Type</label>
+            <label className="label">{t('policies.type')}</label>
             <select
               value={type}
-              onChange={(e) => { setType(e.target.value); setSettingsText(SETTINGS_PLACEHOLDER[e.target.value]); }}
-              className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+              onChange={(e) => {
+                setType(e.target.value);
+                setSettingsText(SETTINGS_PLACEHOLDER[e.target.value]);
+              }}
+              className="input"
             >
-              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              {TYPES.map((x) => (
+                <option key={x} value={x}>{t(`policies.type.${x}` as TranslationKey)}</option>
+              ))}
             </select>
           </div>
           <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {submitting ? 'Saving...' : 'Save policy'}
+            <button type="submit" disabled={submitting} className="btn-primary w-full">
+              {submitting ? t('common.saving') : t('policies.save')}
             </button>
           </div>
         </div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Settings (JSON)</label>
+        <label className="label">{t('policies.settings')}</label>
         <textarea
           value={settingsText}
           onChange={(e) => setSettingsText(e.target.value)}
           rows={3}
-          className="w-full rounded-md border border-slate-300 px-2 py-1.5 font-mono text-xs"
+          spellCheck={false}
+          className="input font-mono text-xs"
         />
       </form>
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      <ErrorBanner message={error} />
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
+      <div className="table-wrap">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-2 font-medium">Scope</th>
-              <th className="px-4 py-2 font-medium">Type</th>
-              <th className="px-4 py-2 font-medium">Settings</th>
-              <th className="px-4 py-2 font-medium">Version</th>
-              <th className="px-4 py-2 font-medium">Updated</th>
-              <th className="px-4 py-2 font-medium"></th>
+              <th>{t('policies.scope')}</th>
+              <th>{t('policies.type')}</th>
+              <th>{t('policies.col.settings')}</th>
+              <th>{t('common.version')}</th>
+              <th>{t('common.updated')}</th>
+              <th />
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={6}>Loading...</td></tr>
-            )}
-            {!loading && policies.length === 0 && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={6}>No policy overrides configured — every device uses the Agent&apos;s built-in defaults.</td></tr>
-            )}
+            {loading && <LoadingRow colSpan={6} />}
+            {!loading && policies.length === 0 && <EmptyRow colSpan={6} icon="sliders">{t('policies.empty')}</EmptyRow>}
             {policies.map((p) => (
-              <tr key={p.id} className="border-t border-slate-100 align-top">
-                <td className="px-4 py-2">{p.scope}{p.scopeId ? ` (${p.scopeId.slice(0, 8)})` : ''}</td>
-                <td className="px-4 py-2">{p.type}</td>
-                <td className="max-w-xs truncate px-4 py-2 font-mono text-xs text-slate-500">{JSON.stringify(p.settings)}</td>
-                <td className="px-4 py-2">{p.version}</td>
-                <td className="whitespace-nowrap px-4 py-2">{new Date(p.updatedAt).toLocaleString()}</td>
-                <td className="px-4 py-2">
-                  <button onClick={() => handleDelete(p.id)} className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">
-                    Remove
+              <tr key={p.id} className="align-top hover:bg-slate-50">
+                <td>
+                  <Badge tone="blue">{t(`policies.scope.${p.scope}` as TranslationKey)}</Badge>
+                  {p.scopeId && <span className="ml-2 font-mono text-xs text-slate-400">{p.scopeId.slice(0, 8)}</span>}
+                </td>
+                <td className="font-medium">{t(`policies.type.${p.type}` as TranslationKey)}</td>
+                <td className="max-w-xs truncate font-mono text-xs text-slate-500" title={JSON.stringify(p.settings)}>
+                  {JSON.stringify(p.settings)}
+                </td>
+                <td className="tabular-nums">{p.version}</td>
+                <td className="whitespace-nowrap text-slate-600">{formatDateTime(p.updatedAt)}</td>
+                <td>
+                  <button onClick={() => handleDelete(p.id)} className="btn-secondary btn-sm">
+                    {t('common.remove')}
                   </button>
                 </td>
               </tr>

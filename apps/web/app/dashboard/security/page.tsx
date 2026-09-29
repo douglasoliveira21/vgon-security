@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
+import { TranslationKey } from '@/lib/locales/en';
+import { useDevices } from '@/lib/useDevices';
+import { EmptyRow, ErrorBanner, LoadingRow, PageHeader, SeverityBadge, Timestamp } from '@/lib/ui';
 
 interface Finding {
   id: string;
@@ -17,15 +21,17 @@ interface Finding {
 
 const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
 
-const SEVERITY_STYLES: Record<string, string> = {
-  CRITICAL: 'bg-red-100 text-red-700 border-red-200',
-  HIGH: 'bg-orange-100 text-orange-700 border-orange-200',
-  MEDIUM: 'bg-amber-100 text-amber-700 border-amber-200',
-  LOW: 'bg-blue-100 text-blue-700 border-blue-200',
-  INFO: 'bg-slate-100 text-slate-600 border-slate-200',
+const SEVERITY_CARD: Record<string, string> = {
+  CRITICAL: 'border-red-200 bg-red-50 text-red-700',
+  HIGH: 'border-orange-200 bg-orange-50 text-orange-700',
+  MEDIUM: 'border-amber-200 bg-amber-50 text-amber-700',
+  LOW: 'border-blue-200 bg-blue-50 text-blue-700',
+  INFO: 'border-slate-200 bg-white text-slate-600',
 };
 
 export default function SecurityCenterPage() {
+  const { t } = useI18n();
+  const { nameOf } = useDevices();
   const [findings, setFindings] = useState<Finding[]>([]);
   const [statusFilter, setStatusFilter] = useState<'OPEN' | 'RESOLVED'>('OPEN');
   const [error, setError] = useState<string | null>(null);
@@ -34,10 +40,10 @@ export default function SecurityCenterPage() {
 
   async function load() {
     try {
-      const data = await apiFetch<Finding[]>(`/security/findings?status=${statusFilter}`);
-      setFindings(data);
+      setFindings(await apiFetch<Finding[]>(`/security/findings?status=${statusFilter}`));
+      setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load security findings');
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     } finally {
       setLoading(false);
     }
@@ -57,7 +63,7 @@ export default function SecurityCenterPage() {
       await apiFetch(`/security/findings/${id}/resolve`, { method: 'POST' });
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to resolve finding');
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     } finally {
       setResolving(null);
     }
@@ -67,81 +73,72 @@ export default function SecurityCenterPage() {
     acc[sev] = findings.filter((f) => f.severity === sev).length;
     return acc;
   }, {});
-
-  const sorted = [...findings].sort(
-    (a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity),
-  );
+  const sorted = [...findings].sort((a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity));
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Security Center</h1>
-        <div className="inline-flex rounded-md border border-slate-300 text-sm">
-          <button
-            onClick={() => setStatusFilter('OPEN')}
-            className={`px-3 py-1.5 ${statusFilter === 'OPEN' ? 'bg-brand text-white' : 'bg-white text-slate-600'} rounded-l-md`}
-          >
-            Open
-          </button>
-          <button
-            onClick={() => setStatusFilter('RESOLVED')}
-            className={`px-3 py-1.5 ${statusFilter === 'RESOLVED' ? 'bg-brand text-white' : 'bg-white text-slate-600'} rounded-r-md`}
-          >
-            Resolved
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title={t('security.title')}
+        subtitle={t('security.subtitle')}
+        actions={
+          <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-sm">
+            {(['OPEN', 'RESOLVED'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+                  statusFilter === s ? 'bg-white text-brand shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {s === 'OPEN' ? t('security.open') : t('security.resolved')}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
-      <div className="mb-6 grid grid-cols-5 gap-3">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {SEVERITY_ORDER.map((sev) => (
-          <div key={sev} className={`rounded-lg border px-4 py-3 ${SEVERITY_STYLES[sev]}`}>
-            <div className="text-xs font-medium uppercase tracking-wide">{sev}</div>
-            <div className="text-2xl font-semibold">{counts[sev]}</div>
+          <div key={sev} className={`rounded-xl border px-4 py-3 ${SEVERITY_CARD[sev]}`}>
+            <div className="text-xs font-semibold uppercase tracking-wide">{t(`severity.${sev}` as TranslationKey)}</div>
+            <div className="text-2xl font-semibold tabular-nums">{counts[sev]}</div>
           </div>
         ))}
       </div>
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      <ErrorBanner message={error} />
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
+      <div className="table-wrap">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-2 font-medium">Severity</th>
-              <th className="px-4 py-2 font-medium">Finding</th>
-              <th className="px-4 py-2 font-medium">Device</th>
-              <th className="px-4 py-2 font-medium">Detected</th>
-              {statusFilter === 'OPEN' && <th className="px-4 py-2 font-medium"></th>}
+              <th>{t('common.severity')}</th>
+              <th>{t('security.col.finding')}</th>
+              <th>{t('common.device')}</th>
+              <th>{t('security.col.detected')}</th>
+              {statusFilter === 'OPEN' && <th />}
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={5}>Loading...</td></tr>
-            )}
+            {loading && <LoadingRow colSpan={5} />}
             {!loading && sorted.length === 0 && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={5}>No {statusFilter.toLowerCase()} findings.</td></tr>
+              <EmptyRow colSpan={5} icon="shield">
+                {statusFilter === 'OPEN' ? t('security.emptyOpen') : t('security.emptyResolved')}
+              </EmptyRow>
             )}
             {sorted.map((f) => (
-              <tr key={f.id} className="border-t border-slate-100 align-top">
-                <td className="px-4 py-2">
-                  <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${SEVERITY_STYLES[f.severity]}`}>
-                    {f.severity}
-                  </span>
-                </td>
-                <td className="px-4 py-2">
-                  <div className="font-medium">{f.title}</div>
+              <tr key={f.id} className="align-top hover:bg-slate-50">
+                <td><SeverityBadge severity={f.severity} /></td>
+                <td>
+                  <div className="font-medium text-slate-900">{f.title}</div>
                   {f.description && <div className="text-xs text-slate-500">{f.description}</div>}
                 </td>
-                <td className="px-4 py-2 font-mono text-xs">{f.deviceId.slice(0, 8)}</td>
-                <td className="whitespace-nowrap px-4 py-2">{new Date(f.detectedAt).toLocaleString()}</td>
+                <td className="font-medium text-slate-800">{nameOf(f.deviceId)}</td>
+                <td><Timestamp iso={f.detectedAt} /></td>
                 {statusFilter === 'OPEN' && (
-                  <td className="px-4 py-2">
-                    <button
-                      onClick={() => resolve(f.id)}
-                      disabled={resolving === f.id}
-                      className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100 disabled:opacity-50"
-                    >
-                      {resolving === f.id ? 'Resolving...' : 'Resolve'}
+                  <td>
+                    <button onClick={() => resolve(f.id)} disabled={resolving === f.id} className="btn-secondary btn-sm">
+                      {resolving === f.id ? t('security.resolving') : t('security.resolve')}
                     </button>
                   </td>
                 )}

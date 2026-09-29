@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
+import { useDevices } from '@/lib/useDevices';
+import { Icon } from '@/lib/icons';
+import { EmptyRow, ErrorBanner, LoadingRow, PageHeader } from '@/lib/ui';
 
 interface SoftwareRow {
   id: string;
@@ -14,6 +18,8 @@ interface SoftwareRow {
 }
 
 export default function SoftwarePage() {
+  const { t, formatDateTime } = useI18n();
+  const { nameOf } = useDevices();
   const [items, setItems] = useState<SoftwareRow[]>([]);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -22,10 +28,10 @@ export default function SoftwarePage() {
   async function load(name?: string) {
     try {
       const query = name ? `?name=${encodeURIComponent(name)}` : '';
-      const data = await apiFetch<SoftwareRow[]>(`/software${query}`);
-      setItems(data);
+      setItems(await apiFetch<SoftwareRow[]>(`/software${query}`));
+      setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load software inventory');
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     } finally {
       setLoading(false);
     }
@@ -33,6 +39,7 @@ export default function SoftwarePage() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleSearch(e: React.FormEvent) {
@@ -43,50 +50,49 @@ export default function SoftwarePage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Software inventory</h1>
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name..."
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
-          />
-          <button type="submit" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">
-            Search
-          </button>
-        </form>
-      </div>
+      <PageHeader
+        title={t('software.title')}
+        subtitle={t('software.subtitle')}
+        actions={
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <div className="relative">
+              <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('software.search')}
+                className="input w-56 pl-9"
+              />
+            </div>
+            <button type="submit" className="btn-secondary">{t('common.search')}</button>
+          </form>
+        }
+      />
+      <ErrorBanner message={error} />
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
+      <div className="table-wrap">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-2 font-medium">Name</th>
-              <th className="px-4 py-2 font-medium">Version</th>
-              <th className="px-4 py-2 font-medium">Publisher</th>
-              <th className="px-4 py-2 font-medium">Architecture</th>
-              <th className="px-4 py-2 font-medium">Device</th>
-              <th className="px-4 py-2 font-medium">Last seen</th>
+              <th>{t('software.col.name')}</th>
+              <th>{t('software.col.version')}</th>
+              <th>{t('software.col.publisher')}</th>
+              <th>{t('software.col.arch')}</th>
+              <th>{t('common.device')}</th>
+              <th>{t('software.col.lastSeen')}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={6}>Loading...</td></tr>
-            )}
-            {!loading && items.length === 0 && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={6}>No software inventory reported yet.</td></tr>
-            )}
+            {loading && <LoadingRow colSpan={6} />}
+            {!loading && items.length === 0 && <EmptyRow colSpan={6} icon="package">{t('software.empty')}</EmptyRow>}
             {items.map((s) => (
-              <tr key={s.id} className="border-t border-slate-100 align-top">
-                <td className="px-4 py-2">{s.name}</td>
-                <td className="px-4 py-2">{s.version || '—'}</td>
-                <td className="px-4 py-2">{s.publisher ?? '—'}</td>
-                <td className="px-4 py-2">{s.architecture ?? '—'}</td>
-                <td className="px-4 py-2 font-mono text-xs">{s.deviceId.slice(0, 8)}</td>
-                <td className="whitespace-nowrap px-4 py-2">{new Date(s.lastSeenAt).toLocaleString()}</td>
+              <tr key={s.id} className="align-top hover:bg-slate-50">
+                <td className="font-medium text-slate-900">{s.name}</td>
+                <td className="font-mono text-xs text-slate-600">{s.version || '—'}</td>
+                <td className="text-slate-600">{s.publisher ?? '—'}</td>
+                <td className="text-slate-600">{s.architecture ?? '—'}</td>
+                <td>{nameOf(s.deviceId)}</td>
+                <td className="whitespace-nowrap text-slate-600">{formatDateTime(s.lastSeenAt)}</td>
               </tr>
             ))}
           </tbody>

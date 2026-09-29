@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
+import { formatBytes } from '@/lib/events';
+import { EmptyRow, ErrorBanner, LoadingRow, PageHeader } from '@/lib/ui';
 
 interface HardwareRow {
   id: string;
@@ -18,68 +21,57 @@ interface HardwareRow {
   } | null;
 }
 
-function formatBytes(bytes?: number) {
-  if (!bytes) return '—';
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
 export default function HardwarePage() {
+  const { t, formatDateTime } = useI18n();
   const [devices, setDevices] = useState<HardwareRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function load() {
-    try {
-      const data = await apiFetch<HardwareRow[]>('/hardware');
-      setDevices(data);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load hardware inventory');
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    load();
+    apiFetch<HardwareRow[]>('/hardware')
+      .then((data) => {
+        setDevices(data);
+        setError(null);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' })))
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div>
-      <h1 className="mb-6 text-lg font-semibold">Hardware inventory</h1>
+      <PageHeader title={t('hardware.title')} subtitle={t('hardware.subtitle')} />
+      <ErrorBanner message={error} />
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
+      <div className="table-wrap">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-2 font-medium">Device</th>
-              <th className="px-4 py-2 font-medium">CPU</th>
-              <th className="px-4 py-2 font-medium">RAM</th>
-              <th className="px-4 py-2 font-medium">GPU</th>
-              <th className="px-4 py-2 font-medium">Motherboard</th>
-              <th className="px-4 py-2 font-medium">Last inventory</th>
+              <th>{t('common.device')}</th>
+              <th>{t('hardware.col.cpu')}</th>
+              <th>{t('hardware.col.ram')}</th>
+              <th>{t('hardware.col.gpu')}</th>
+              <th>{t('hardware.col.board')}</th>
+              <th>{t('hardware.col.last')}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={6}>Loading...</td></tr>
-            )}
-            {!loading && devices.length === 0 && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={6}>No hardware inventory reported yet.</td></tr>
-            )}
+            {loading && <LoadingRow colSpan={6} />}
+            {!loading && devices.length === 0 && <EmptyRow colSpan={6} icon="cpu">{t('hardware.empty')}</EmptyRow>}
             {devices.map((d) => (
-              <tr key={d.id} className="border-t border-slate-100 align-top">
-                <td className="px-4 py-2">{d.hostname ?? '—'}</td>
-                <td className="px-4 py-2">
+              <tr key={d.id} className="align-top hover:bg-slate-50">
+                <td className="font-medium text-slate-900">{d.hostname ?? '—'}</td>
+                <td>
                   {d.hardware?.cpu ?? '—'}
-                  {d.hardware?.cpuCores ? ` (${d.hardware.cpuCores} cores)` : ''}
+                  {d.hardware?.cpuCores ? (
+                    <div className="text-xs text-slate-500">{t('hardware.cores', { n: d.hardware.cpuCores })}</div>
+                  ) : null}
                 </td>
-                <td className="px-4 py-2">{formatBytes(d.hardware?.ramTotalBytes)}</td>
-                <td className="px-4 py-2">{d.hardware?.gpu ?? '—'}</td>
-                <td className="px-4 py-2">{d.hardware?.motherboard ?? '—'}</td>
-                <td className="whitespace-nowrap px-4 py-2">
-                  {d.lastInventoryAt ? new Date(d.lastInventoryAt).toLocaleString() : 'Never'}
+                <td className="whitespace-nowrap">{d.hardware?.ramTotalBytes ? formatBytes(d.hardware.ramTotalBytes) : '—'}</td>
+                <td>{d.hardware?.gpu ?? '—'}</td>
+                <td>{d.hardware?.motherboard ?? '—'}</td>
+                <td className="whitespace-nowrap text-slate-600">
+                  {d.lastInventoryAt ? formatDateTime(d.lastInventoryAt) : t('common.never')}
                 </td>
               </tr>
             ))}

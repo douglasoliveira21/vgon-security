@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
+import { Badge, EmptyRow, ErrorBanner, LoadingRow, PageHeader } from '@/lib/ui';
 
 interface Release {
   id: string;
@@ -15,6 +17,7 @@ interface Release {
 }
 
 export default function ReleasesPage() {
+  const { t, formatDateTime } = useI18n();
   const [releases, setReleases] = useState<Release[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,10 +32,9 @@ export default function ReleasesPage() {
 
   async function load() {
     try {
-      const data = await apiFetch<Release[]>('/agent-releases');
-      setReleases(data);
+      setReleases(await apiFetch<Release[]>('/agent-releases'));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load releases');
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     } finally {
       setLoading(false);
     }
@@ -40,6 +42,7 @@ export default function ReleasesPage() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -49,7 +52,14 @@ export default function ReleasesPage() {
     try {
       await apiFetch('/agent-releases', {
         method: 'POST',
-        body: JSON.stringify({ version, channel, downloadUrl, sha256: sha256.toLowerCase(), releaseNotes: releaseNotes || undefined, mandatory }),
+        body: JSON.stringify({
+          version,
+          channel,
+          downloadUrl,
+          sha256: sha256.toLowerCase(),
+          releaseNotes: releaseNotes || undefined,
+          mandatory,
+        }),
       });
       setVersion('');
       setDownloadUrl('');
@@ -58,7 +68,7 @@ export default function ReleasesPage() {
       setMandatory(false);
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to publish release');
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     } finally {
       setSubmitting(false);
     }
@@ -66,77 +76,78 @@ export default function ReleasesPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-lg font-semibold">Agent releases</h1>
-      <p className="mb-6 text-sm text-slate-500">
-        Enrolled Agents check for updates against the latest release on their configured channel and verify the SHA-256 checksum before installing — a mismatch aborts the update.
-      </p>
+      <PageHeader title={t('releases.title')} subtitle={t('releases.subtitle')} />
 
-      <form onSubmit={handleSubmit} className="mb-8 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-4">
+      <form onSubmit={handleSubmit} className="card mb-8 grid gap-4 p-5 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Version (semver)</label>
-          <input value={version} onChange={(e) => setVersion(e.target.value)} placeholder="1.4.0" required
-            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+          <label className="label">{t('releases.version')}</label>
+          <input value={version} onChange={(e) => setVersion(e.target.value)} placeholder="1.4.0" required className="input" />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600">Channel</label>
-          <select value={channel} onChange={(e) => setChannel(e.target.value)} className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+          <label className="label">{t('releases.channel')}</label>
+          <select value={channel} onChange={(e) => setChannel(e.target.value)} className="input">
             <option value="STABLE">STABLE</option>
             <option value="BETA">BETA</option>
           </select>
         </div>
-        <div className="col-span-2">
-          <label className="mb-1 block text-xs font-medium text-slate-600">Download URL</label>
-          <input value={downloadUrl} onChange={(e) => setDownloadUrl(e.target.value)} placeholder="https://releases.example.com/VgonAgent-1.4.0.zip" required
-            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+        <div className="sm:col-span-2">
+          <label className="label">{t('releases.downloadUrl')}</label>
+          <input
+            value={downloadUrl}
+            onChange={(e) => setDownloadUrl(e.target.value)}
+            placeholder="https://releases.example.com/VgonAgent-1.4.0.zip"
+            required
+            className="input"
+          />
         </div>
-        <div className="col-span-2">
-          <label className="mb-1 block text-xs font-medium text-slate-600">SHA-256</label>
-          <input value={sha256} onChange={(e) => setSha256(e.target.value)} placeholder="64-character hex digest" required
-            className="w-full rounded-md border border-slate-300 px-2 py-1.5 font-mono text-xs" />
+        <div className="sm:col-span-2">
+          <label className="label">{t('releases.sha256')}</label>
+          <input
+            value={sha256}
+            onChange={(e) => setSha256(e.target.value)}
+            placeholder={t('releases.sha256.placeholder')}
+            required
+            className="input font-mono text-xs"
+          />
         </div>
-        <div className="col-span-2">
-          <label className="mb-1 block text-xs font-medium text-slate-600">Release notes</label>
-          <textarea value={releaseNotes} onChange={(e) => setReleaseNotes(e.target.value)} rows={2}
-            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+        <div className="sm:col-span-2">
+          <label className="label">{t('releases.notes')}</label>
+          <textarea value={releaseNotes} onChange={(e) => setReleaseNotes(e.target.value)} rows={2} className="input" />
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={mandatory} onChange={(e) => setMandatory(e.target.checked)} />
-          Mandatory update
+          {t('releases.mandatory')}
         </label>
         <div className="flex items-end justify-end">
-          <button type="submit" disabled={submitting} className="rounded-md bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60">
-            {submitting ? 'Publishing...' : 'Publish release'}
+          <button type="submit" disabled={submitting} className="btn-primary">
+            {submitting ? t('releases.publishing') : t('releases.publish')}
           </button>
         </div>
       </form>
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      <ErrorBanner message={error} />
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
+      <div className="table-wrap">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-2 font-medium">Version</th>
-              <th className="px-4 py-2 font-medium">Channel</th>
-              <th className="px-4 py-2 font-medium">SHA-256</th>
-              <th className="px-4 py-2 font-medium">Mandatory</th>
-              <th className="px-4 py-2 font-medium">Published</th>
+              <th>{t('common.version')}</th>
+              <th>{t('releases.channel')}</th>
+              <th>{t('releases.sha256')}</th>
+              <th>{t('releases.col.mandatory')}</th>
+              <th>{t('releases.col.published')}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={5}>Loading...</td></tr>
-            )}
-            {!loading && releases.length === 0 && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={5}>No releases published yet.</td></tr>
-            )}
+            {loading && <LoadingRow colSpan={5} />}
+            {!loading && releases.length === 0 && <EmptyRow colSpan={5} icon="download">{t('releases.empty')}</EmptyRow>}
             {releases.map((r) => (
-              <tr key={r.id} className="border-t border-slate-100 align-top">
-                <td className="px-4 py-2 font-medium">{r.version}</td>
-                <td className="px-4 py-2">{r.channel}</td>
-                <td className="max-w-xs truncate px-4 py-2 font-mono text-xs text-slate-500">{r.sha256}</td>
-                <td className="px-4 py-2">{r.mandatory ? 'Yes' : '—'}</td>
-                <td className="whitespace-nowrap px-4 py-2">{new Date(r.publishedAt).toLocaleString()}</td>
+              <tr key={r.id} className="align-top hover:bg-slate-50">
+                <td className="font-medium text-slate-900">{r.version}</td>
+                <td><Badge tone={r.channel === 'STABLE' ? 'green' : 'amber'}>{r.channel}</Badge></td>
+                <td className="max-w-xs truncate font-mono text-xs text-slate-500" title={r.sha256}>{r.sha256}</td>
+                <td>{r.mandatory ? <Badge tone="red">{t('common.yes')}</Badge> : <span className="text-slate-400">—</span>}</td>
+                <td className="whitespace-nowrap text-slate-600">{formatDateTime(r.publishedAt)}</td>
               </tr>
             ))}
           </tbody>

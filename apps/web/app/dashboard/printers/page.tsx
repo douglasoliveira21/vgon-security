@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
+import { useDevices } from '@/lib/useDevices';
+import { EmptyRow, ErrorBanner, LoadingRow, PageHeader, Timestamp } from '@/lib/ui';
 
 interface PrinterEventRow {
   id: string;
@@ -16,16 +19,18 @@ interface PrinterEventRow {
 }
 
 export default function PrintersPage() {
+  const { t } = useI18n();
+  const { nameOf } = useDevices();
   const [events, setEvents] = useState<PrinterEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     try {
-      const data = await apiFetch<PrinterEventRow[]>('/events?eventType=printer.job&take=100');
-      setEvents(data);
+      setEvents(await apiFetch<PrinterEventRow[]>('/events?eventType=printer.job&take=100'));
+      setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load print jobs');
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     } finally {
       setLoading(false);
     }
@@ -35,42 +40,37 @@ export default function PrintersPage() {
     load();
     const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div>
-      <h1 className="mb-1 text-lg font-semibold">Print jobs</h1>
-      <p className="mb-6 text-sm text-slate-500">Document names and page counts only — document content is never captured.</p>
+      <PageHeader title={t('printers.title')} subtitle={t('printers.subtitle')} meta={t('common.refreshEvery', { seconds: 15 })} />
+      <ErrorBanner message={error} />
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500">
+      <div className="table-wrap">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-2 font-medium">Time</th>
-              <th className="px-4 py-2 font-medium">Device</th>
-              <th className="px-4 py-2 font-medium">User</th>
-              <th className="px-4 py-2 font-medium">Printer</th>
-              <th className="px-4 py-2 font-medium">Document</th>
-              <th className="px-4 py-2 font-medium">Pages</th>
+              <th>{t('common.time')}</th>
+              <th>{t('common.device')}</th>
+              <th>{t('common.user')}</th>
+              <th>{t('printers.col.printer')}</th>
+              <th>{t('printers.col.document')}</th>
+              <th>{t('printers.col.pages')}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={6}>Loading...</td></tr>
-            )}
-            {!loading && events.length === 0 && (
-              <tr><td className="px-4 py-4 text-slate-400" colSpan={6}>No print jobs yet.</td></tr>
-            )}
+            {loading && <LoadingRow colSpan={6} />}
+            {!loading && events.length === 0 && <EmptyRow colSpan={6} icon="printer">{t('printers.empty')}</EmptyRow>}
             {events.map((e) => (
-              <tr key={e.id} className="border-t border-slate-100 align-top">
-                <td className="whitespace-nowrap px-4 py-2">{new Date(e.occurredAt).toLocaleString()}</td>
-                <td className="px-4 py-2 font-mono text-xs">{e.deviceId.slice(0, 8)}</td>
-                <td className="px-4 py-2">{e.data.user ?? '—'}</td>
-                <td className="px-4 py-2">{e.data.printerName ?? '—'}</td>
-                <td className="px-4 py-2">{e.data.documentName ?? '—'}</td>
-                <td className="px-4 py-2">{e.data.pages ?? '—'}</td>
+              <tr key={e.id} className="align-top hover:bg-slate-50">
+                <td><Timestamp iso={e.occurredAt} /></td>
+                <td className="font-medium text-slate-800">{nameOf(e.deviceId)}</td>
+                <td className="text-slate-600">{e.data.user ?? '—'}</td>
+                <td>{e.data.printerName ?? '—'}</td>
+                <td className="max-w-xs truncate">{e.data.documentName ?? '—'}</td>
+                <td className="tabular-nums">{e.data.pages ?? '—'}</td>
               </tr>
             ))}
           </tbody>
