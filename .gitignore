@@ -18,3 +18,4 @@ agent/Installer/publish/
 agent/Installer/bin/
 agent/Installer/obj/
 agent/Installer/dist/
+agent/Installer/bin*/
