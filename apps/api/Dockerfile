@@ -1,4 +1,10 @@
 FROM node:20-alpine AS build
+# Prisma's engine binaries are dynamically linked against libssl and fail with a cryptic
+# "Could not parse schema engine response" error on Alpine images that don't have it installed
+# (recent Alpine versions don't ship OpenSSL by default). Needed in both stages: here so
+# `prisma generate` can detect the right engine, and in the runtime stage so `migrate deploy`
+# and the query engine can actually run.
+RUN apk add --no-cache openssl
 WORKDIR /repo
 COPY package.json package-lock.json* ./
 COPY packages/shared/package.json packages/shared/package.json
@@ -11,6 +17,7 @@ RUN npm run --workspace apps/api prisma:generate
 RUN npm run build --workspace apps/api
 
 FROM node:20-alpine AS runtime
+RUN apk add --no-cache openssl
 WORKDIR /repo
 ENV NODE_ENV=production
 COPY --from=build /repo/node_modules ./node_modules
