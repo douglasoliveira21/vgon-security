@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>VgonAgent</AssemblyName>
+    <RootNamespace>VgonAgent</RootNamespace>
+    <UserSecretsId>dotnet-VgonAgent-17f7e1d4-065a-4fb2-8589-2cde6d982e3c</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
+    <PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.12" />
+    <PackageReference Include="System.Management" Version="10.0.12" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+  </ItemGroup>
+</Project>

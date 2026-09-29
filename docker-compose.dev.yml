@@ -1,0 +1,88 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vgon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-dev-only}
+      POSTGRES_DB: ${POSTGRES_DB:-vgon_security}
+    ports:
+      - "5432:5432"
+    volumes:
+      - vgon_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vgon}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-vgon}:${POSTGRES_PASSWORD:-change-me-dev-only}@postgres:5432/${POSTGRES_DB:-vgon_security}?schema=public
+      REDIS_URL: redis://redis:6379
+      PORT: 4000
+      WEB_ORIGIN: http://localhost:3000
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-web-access-secret-change-me}
+      AGENT_JWT_SECRET: ${AGENT_JWT_SECRET:-dev-agent-access-secret-change-me}
+    ports:
+      - "4000:4000"
+
+  # Standalone event worker (Phase 8 — see apps/api/src/worker.module.ts). Same image as `api`,
+  # just a different command and no migration step (the `api` service already ran it). Optional
+  # for local dev — the `api` service processes its own queue fine at dev-scale — but present so
+  # `docker compose up` exercises the same two-process split the EasyPanel deployment uses.
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["node", "dist/main-worker.js"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-vgon}:${POSTGRES_PASSWORD:-change-me-dev-only}@postgres:5432/${POSTGRES_DB:-vgon_security}?schema=public
+      REDIS_URL: redis://redis:6379
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      # NEXT_PUBLIC_API_URL is inlined into the browser bundle at build time, so it must be a
+      # build arg, not a runtime `environment:` entry (which the already-built bundle would ignore).
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api/v1}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  vgon_postgres_data:

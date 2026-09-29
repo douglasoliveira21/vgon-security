@@ -1,0 +1,419 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Tenancy
+// ============================================================
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users              User[]
+  sites              Site[]
+  groups             Group[]
+  devices            Device[]
+  provisioningTokens ProvisioningToken[]
+  auditLogs          AuditLog[]
+  events             Event[]
+  software           InstalledSoftware[]
+  findings           SecurityFinding[]
+  policies           Policy[]
+  remoteActions      RemoteAction[]
+  agentReleases      AgentRelease[]
+
+  @@map("tenants")
+}
+
+// Optional hierarchy: Tenant -> Sites -> Groups -> Devices (section 3).
+model Site {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now())
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  groups  Group[]
+  devices Device[]
+
+  @@unique([tenantId, name])
+  @@map("sites")
+}
+
+model Group {
+  id        String   @id @default(uuid())
+  tenantId  String
+  siteId    String?
+  name      String
+  createdAt DateTime @default(now())
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site    Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  devices Device[]
+
+  @@unique([tenantId, name])
+  @@map("groups")
+}
+
+// ============================================================
+// Identity / RBAC
+// ============================================================
+
+enum Role {
+  OWNER
+  ADMINISTRATOR
+  SECURITY_ADMIN
+  IT_ADMIN
+  ANALYST
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String
+  email        String
+  passwordHash String
+  name         String
+  role         Role     @default(VIEWER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+// ============================================================
+// Devices & Agent provisioning (section 4)
+// ============================================================
+
+enum DeviceStatus {
+  PENDING
+  ONLINE
+  STALE
+  OFFLINE
+  BLOCKED
+  DECOMMISSIONED
+}
+
+model Device {
+  id             String       @id @default(uuid())
+  tenantId       String
+  siteId         String?
+  groupId        String?
+  hostname       String?
+  status         DeviceStatus @default(PENDING)
+  agentVersion   String?
+  os             String?
+  osVersion      String?
+  lastSeenAt     DateTime?
+  lastHeartbeat  Json?
+  policyVersion  String?
+  // Phase 5 (sections 12/13): latest snapshot only — history lives in the Event table via
+  // hardware.inventory/security.state events; these columns are just the fast-read cache the
+  // dashboard's device detail page and Security Center query without re-aggregating events.
+  hardware       Json?
+  securityState  Json?
+  lastInventoryAt DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site       Site?              @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  group      Group?             @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  credential AgentCredential?
+  events     Event[]
+  software   InstalledSoftware[]
+  findings   SecurityFinding[]
+  remoteActions RemoteAction[]
+
+  @@index([tenantId, status])
+  @@map("devices")
+}
+
+// A provisioning token is single-use, short-lived, and scoped to a tenant.
+// It is exchanged by the installer for a device-specific AgentCredential (never a shared secret).
+model ProvisioningToken {
+  id         String    @id @default(uuid())
+  tenantId   String
+  tokenHash  String    @unique
+  siteId     String?
+  groupId    String?
+  createdById String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  usedByDeviceId String?
+  createdAt  DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("provisioning_tokens")
+}
+
+enum AgentTokenStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+// Per-device credential issued after provisioning. Only hashes are stored server-side;
+// the plaintext refresh token is returned once to the Agent, which stores it via DPAPI locally.
+model AgentCredential {
+  id                  String           @id @default(uuid())
+  deviceId            String           @unique
+  refreshTokenHash    String           @unique
+  status              AgentTokenStatus @default(ACTIVE)
+  lastRotatedAt       DateTime         @default(now())
+  lastUsedAt          DateTime?
+  lastUsedIp          String?
+  expiresAt           DateTime
+  createdAt           DateTime         @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("agent_credentials")
+}
+
+// ============================================================
+// Events (section 5/6) — generic envelope for process/application telemetry now,
+// and browser/file/usb/printer/security events in later phases. A dedicated table
+// per event type would churn every phase; `data` (Json) carries the type-specific
+// payload while the indexed columns cover the filters the timeline/dashboard need.
+// ============================================================
+
+enum EventSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Event {
+  id             String        @id @default(uuid())
+  eventId        String        @unique // client-generated UUID; enforces idempotency on redelivery
+  tenantId       String
+  deviceId       String
+  userId         String?
+  agentVersion   String
+  eventType      String
+  severity       EventSeverity @default(INFO)
+  schemaVersion  Int           @default(1)
+  occurredAt     DateTime // Agent-reported timestamp
+  receivedAt     DateTime      @default(now()) // server-side ingestion time
+  data           Json
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, deviceId, occurredAt])
+  @@index([tenantId, eventType, occurredAt])
+  @@map("events")
+}
+
+// ============================================================
+// Software / Security inventory (sections 12, 13)
+// ============================================================
+
+// One row per (device, name, version) ever seen. The Agent sends incremental added/removed
+// diffs (section 12: "evitar enviar o inventário completo em todos os heartbeats"), so the
+// Cloud maintains current state here rather than re-deriving it from raw events each time.
+model InstalledSoftware {
+  id          String    @id @default(uuid())
+  tenantId    String
+  deviceId    String
+  name        String
+  version     String?
+  publisher   String?
+  architecture String?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  removedAt   DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, name, version])
+  @@index([tenantId, deviceId])
+  @@index([tenantId, removedAt])
+  @@map("installed_software")
+}
+
+enum FindingStatus {
+  OPEN
+  RESOLVED
+}
+
+// Generated by SecurityEvaluatorService from security.state events (section 13). One row per
+// (device, code): re-detection refreshes detectedAt and reopens it; the condition clearing
+// resolves it. Findings classify device/technical risk, never people (section 19).
+model SecurityFinding {
+  id          String        @id @default(uuid())
+  tenantId    String
+  deviceId    String
+  code        String // e.g. DEFENDER_DISABLED, FIREWALL_DISABLED, BITLOCKER_DISABLED
+  title       String
+  description String?
+  severity    EventSeverity
+  status      FindingStatus @default(OPEN)
+  detectedAt  DateTime      @default(now())
+  resolvedAt  DateTime?
+  metadata    Json?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, code])
+  @@index([tenantId, status])
+  @@map("security_findings")
+}
+
+// ============================================================
+// Policy Engine (section 16) — Tenant -> Site -> Group -> Device.
+// One row per (tenant, scope, scopeId, type); scopeId is '' for TENANT scope (the tenant-wide
+// default — normalized to '' rather than null so the compound unique index below actually
+// enforces "one TENANT-scope row per type", since Postgres treats NULL as distinct from NULL)
+// and the site/group/deviceId otherwise. PolicyResolverService merges the applicable rows for a
+// device, most specific wins per field.
+// ============================================================
+
+enum PolicyScope {
+  TENANT
+  SITE
+  GROUP
+  DEVICE
+}
+
+enum PolicyType {
+  BROWSER
+  FILE
+  USB
+  APPLICATION
+  SECURITY
+  AGENT
+  COLLECTION
+}
+
+model Policy {
+  id        String      @id @default(uuid())
+  tenantId  String
+  scope     PolicyScope
+  scopeId   String? // siteId / groupId / deviceId; '' when scope = TENANT
+  type      PolicyType
+  settings  Json
+  version   Int         @default(1)
+  createdById String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, scope, scopeId, type])
+  @@index([tenantId, type])
+  @@map("policies")
+}
+
+// ============================================================
+// RMM — controlled remote actions (section 26/Phase 7). Deliberately a FIXED enum of safe
+// actions, never arbitrary command execution: this is a monitoring/management agent, not a
+// remote-shell backdoor. The Agent polls for its own pending actions and reports the outcome.
+// ============================================================
+
+enum RemoteActionType {
+  REFRESH_POLICY
+  COLLECT_INVENTORY
+  RESTART_AGENT
+  LOCK_SESSION
+}
+
+enum RemoteActionStatus {
+  PENDING
+  ACKNOWLEDGED
+  COMPLETED
+  FAILED
+}
+
+model RemoteAction {
+  id             String             @id @default(uuid())
+  tenantId       String
+  deviceId       String
+  type           RemoteActionType
+  status         RemoteActionStatus @default(PENDING)
+  requestedById  String
+  requestedAt    DateTime           @default(now())
+  acknowledgedAt DateTime?
+  completedAt    DateTime?
+  result         Json?
+  errorMessage   String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, deviceId, status])
+  @@map("remote_actions")
+}
+
+// ============================================================
+// Agent auto-update (section 24). Releases are tenant-scoped for simplicity — each tenant
+// manages its own Agent releases under `agents.manage`, the same permission that already governs
+// enrollment. A platform-wide release catalog shared across tenants would need its own
+// non-tenant-scoped admin role, out of scope here.
+// ============================================================
+
+enum ReleaseChannel {
+  STABLE
+  BETA
+}
+
+model AgentRelease {
+  id            String         @id @default(uuid())
+  tenantId      String
+  version       String // semver, e.g. "1.4.0"
+  channel       ReleaseChannel @default(STABLE)
+  downloadUrl   String
+  sha256        String // required integrity check — the Agent refuses to install on a mismatch
+  releaseNotes  String?
+  mandatory     Boolean        @default(false)
+  publishedById String?
+  publishedAt   DateTime       @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, version])
+  @@index([tenantId, channel, publishedAt])
+  @@map("agent_releases")
+}
+
+// ============================================================
+// Audit
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  actorId    String?
+  actorEmail String?
+  action     String
+  resource   String
+  result     String
+  ip         String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}

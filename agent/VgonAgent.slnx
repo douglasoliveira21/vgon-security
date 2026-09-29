@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="VgonAgent.Tests/VgonAgent.Tests.csproj" />
+  <Project Path="VgonAgent/VgonAgent.csproj" />
+</Solution>
