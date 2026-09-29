@@ -85,6 +85,9 @@ export const en = {
   'login.hero.2': 'Browsing, files, USB and printing activity',
   'login.hero.3': 'Hardware, software and security posture',
   'login.forgotPassword': 'Forgot your password?',
+  'login.showPassword': 'Show password',
+  'login.hidePassword': 'Hide password',
+  'login.rememberMe': 'Remember me on this device',
 
   // Forgot / reset password
   'forgotPassword.title': 'Reset your password',
@@ -423,6 +426,25 @@ export const en = {
   'org.sitesEmpty': 'No locations yet.',
   'org.groupsEmpty': 'No groups yet.',
   'org.deleteConfirm': 'Delete "{name}"? Devices assigned to it will become unassigned.',
+
+  // Profile
+  'profile.title': 'My profile',
+  'profile.subtitle': 'Update your name and password.',
+  'profile.section.info': 'Profile information',
+  'profile.name': 'Name',
+  'profile.email': 'Email',
+  'profile.saveInfo': 'Save changes',
+  'profile.savingInfo': 'Saving...',
+  'profile.infoSaved': 'Profile updated.',
+  'profile.section.password': 'Change password',
+  'profile.currentPassword': 'Current password',
+  'profile.newPassword': 'New password',
+  'profile.confirmPassword': 'Confirm new password',
+  'profile.savePassword': 'Update password',
+  'profile.savingPassword': 'Updating...',
+  'profile.passwordSaved': 'Password updated.',
+  'profile.passwordMismatch': 'The passwords do not match.',
+  'nav.profile': 'My profile',
 
   // Clients
   'clients.title': 'Clients',

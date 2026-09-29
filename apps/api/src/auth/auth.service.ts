@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { Role, UserActionTokenType } from '@vgon/shared';
@@ -9,11 +9,14 @@ import { RegisterTenantDto } from './dto/register-tenant.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { MetricsService } from '../observability/metrics.service';
 import { EmailService } from '../common/email.service';
 import { generateOpaqueToken, hashToken } from '../common/token.util';
+import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
 const ACCESS_TOKEN_TTL = '15m';
+const REMEMBER_ME_TOKEN_TTL = '30d';
 const PASSWORD_RESET_TTL_HOURS = 1;
 
 @Injectable()
@@ -87,10 +90,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    const expiresIn = dto.rememberMe ? REMEMBER_ME_TOKEN_TTL : ACCESS_TOKEN_TTL;
     const payload = { sub: user.id, tenantId: user.tenantId, email: user.email, role: user.role };
     const accessToken = this.jwt.sign(payload, {
       secret: process.env.JWT_ACCESS_SECRET ?? 'dev-web-access-secret',
-      expiresIn: ACCESS_TOKEN_TTL,
+      expiresIn,
     });
 
     await this.audit.log({
@@ -105,7 +109,7 @@ export class AuthService {
 
     return {
       accessToken,
-      expiresIn: ACCESS_TOKEN_TTL,
+      expiresIn,
       user: {
         id: user.id,
         email: user.email,
@@ -214,5 +218,55 @@ export class AuthService {
     });
 
     return this.login({ email: token.user.email, password: dto.password }, ip);
+  }
+
+  async getProfile(actor: AuthenticatedUser) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: actor.userId },
+      select: { id: true, email: true, name: true, role: true, tenantId: true, clientId: true, createdAt: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  async updateProfile(actor: AuthenticatedUser, dto: UpdateProfileDto, ip?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: actor.userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const data: { name?: string; passwordHash?: string } = {};
+
+    if (dto.name) {
+      data.name = dto.name;
+    }
+
+    if (dto.newPassword) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException('currentPassword is required to set a new password');
+      }
+      const currentValid = user.passwordHash ? await argon2.verify(user.passwordHash, dto.currentPassword) : false;
+      if (!currentValid) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
+      data.passwordHash = await argon2.hash(dto.newPassword);
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: actor.userId },
+      data,
+      select: { id: true, email: true, name: true, role: true, tenantId: true, clientId: true, createdAt: true },
+    });
+
+    await this.audit.log({
+      tenantId: actor.tenantId,
+      actorId: actor.userId,
+      actorEmail: actor.email,
+      action: 'user.profile_updated',
+      resource: `user:${actor.userId}`,
+      result: 'SUCCESS',
+      ip,
+      metadata: { nameChanged: Boolean(dto.name), passwordChanged: Boolean(dto.newPassword) },
+    });
+
+    return updated;
   }
 }

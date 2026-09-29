@@ -18,6 +18,8 @@ export default function LoginPage() {
   const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -28,15 +30,19 @@ export default function LoginPage() {
     try {
       const res = await apiFetch<LoginResponse>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe }),
       });
-      setSession(res.accessToken, {
-        userId: res.user.id,
-        tenantId: res.user.tenantId,
-        email: res.user.email,
-        role: res.user.role,
-        clientId: res.user.clientId,
-      });
+      setSession(
+        res.accessToken,
+        {
+          userId: res.user.id,
+          tenantId: res.user.tenantId,
+          email: res.user.email,
+          role: res.user.role,
+          clientId: res.user.clientId,
+        },
+        rememberMe,
+      );
       router.replace('/dashboard');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('login.failed'));
@@ -104,15 +110,35 @@ export default function LoginPage() {
                 {t('login.forgotPassword')}
               </Link>
             </div>
-            <input
-              id="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input mb-5"
-            />
+            <div className="relative mb-5">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600"
+              >
+                <Icon name={showPassword ? 'eyeOff' : 'eye'} className="h-4 w-4" />
+              </button>
+            </div>
+
+            <label className="mb-5 flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+              />
+              {t('login.rememberMe')}
+            </label>
 
             {error && (
               <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">

@@ -9,25 +9,53 @@ export interface SessionUser {
   clientId?: string | null;
 }
 
-export function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem('vgon_access_token');
+const TOKEN_KEY = 'vgon_access_token';
+const USER_KEY = 'vgon_user';
+
+// "Remember me" decides where the session lives, not just how long the token lasts (the token's
+// own lifetime is set server-side — see AuthService.login's rememberMe handling): localStorage
+// survives closing the browser, sessionStorage is cleared with the tab/window.
+function storageFor(remember: boolean): Storage {
+  return remember ? window.localStorage : window.sessionStorage;
 }
 
-export function setSession(token: string, user: SessionUser) {
-  window.localStorage.setItem('vgon_access_token', token);
-  window.localStorage.setItem('vgon_user', JSON.stringify(user));
+export function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(TOKEN_KEY) ?? window.sessionStorage.getItem(TOKEN_KEY);
+}
+
+export function setSession(token: string, user: SessionUser, remember = true) {
+  const store = storageFor(remember);
+  const other = storageFor(!remember);
+  store.setItem(TOKEN_KEY, token);
+  store.setItem(USER_KEY, JSON.stringify(user));
+  // Clear the other storage so a later login with a different "remember me" choice can't leave
+  // a stale, conflicting copy of the session behind.
+  other.removeItem(TOKEN_KEY);
+  other.removeItem(USER_KEY);
 }
 
 export function getSessionUser(): SessionUser | null {
   if (typeof window === 'undefined') return null;
-  const raw = window.localStorage.getItem('vgon_user');
+  const raw = window.localStorage.getItem(USER_KEY) ?? window.sessionStorage.getItem(USER_KEY);
   return raw ? JSON.parse(raw) : null;
 }
 
+/** Updates the cached session user in place (e.g. after a profile edit) without touching the token. */
+export function updateSessionUser(patch: Partial<SessionUser>) {
+  if (typeof window === 'undefined') return;
+  const current = getSessionUser();
+  if (!current) return;
+  const updated = { ...current, ...patch };
+  const store = window.localStorage.getItem(USER_KEY) ? window.localStorage : window.sessionStorage;
+  store.setItem(USER_KEY, JSON.stringify(updated));
+}
+
 export function clearSession() {
-  window.localStorage.removeItem('vgon_access_token');
-  window.localStorage.removeItem('vgon_user');
+  window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(USER_KEY);
+  window.sessionStorage.removeItem(TOKEN_KEY);
+  window.sessionStorage.removeItem(USER_KEY);
 }
 
 export class ApiError extends Error {
@@ -50,9 +78,10 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: res.statusText }));
     if (res.status === 401 && typeof window !== 'undefined') {
-      // The web JWT is short-lived (15 min) — without this, every page that polls on an
-      // interval (Screenshots, Events, ...) would otherwise keep re-throwing this same error
-      // every few seconds forever instead of sending the person back to sign in again.
+      // The web JWT is short-lived by default (15 min, or 30 days with "remember me") —
+      // without this, every page that polls on an interval (Screenshots, Events, ...) would
+      // otherwise keep re-throwing this same error every few seconds forever instead of sending
+      // the person back to sign in again.
       clearSession();
       if (!window.location.pathname.startsWith('/login')) {
         window.location.href = '/login';

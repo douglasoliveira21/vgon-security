@@ -86,6 +86,9 @@ export const pt: Record<TranslationKey, string> = {
   'login.hero.2': 'Atividade de navegação, arquivos, USB e impressão',
   'login.hero.3': 'Hardware, softwares e situação de segurança',
   'login.forgotPassword': 'Esqueceu sua senha?',
+  'login.showPassword': 'Mostrar senha',
+  'login.hidePassword': 'Ocultar senha',
+  'login.rememberMe': 'Lembrar de mim neste dispositivo',
 
   // Recuperação de senha
   'forgotPassword.title': 'Redefinir sua senha',
@@ -424,6 +427,25 @@ export const pt: Record<TranslationKey, string> = {
   'org.sitesEmpty': 'Nenhuma localização ainda.',
   'org.groupsEmpty': 'Nenhum grupo ainda.',
   'org.deleteConfirm': 'Excluir "{name}"? Os dispositivos vinculados a ele ficarão sem atribuição.',
+
+  // Perfil
+  'profile.title': 'Meu perfil',
+  'profile.subtitle': 'Atualize seu nome e sua senha.',
+  'profile.section.info': 'Informações do perfil',
+  'profile.name': 'Nome',
+  'profile.email': 'E-mail',
+  'profile.saveInfo': 'Salvar alterações',
+  'profile.savingInfo': 'Salvando...',
+  'profile.infoSaved': 'Perfil atualizado.',
+  'profile.section.password': 'Alterar senha',
+  'profile.currentPassword': 'Senha atual',
+  'profile.newPassword': 'Nova senha',
+  'profile.confirmPassword': 'Confirmar nova senha',
+  'profile.savePassword': 'Atualizar senha',
+  'profile.savingPassword': 'Atualizando...',
+  'profile.passwordSaved': 'Senha atualizada.',
+  'profile.passwordMismatch': 'As senhas não coincidem.',
+  'nav.profile': 'Meu perfil',
 
   // Clientes
   'clients.title': 'Clientes',

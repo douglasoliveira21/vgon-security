@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -7,4 +7,9 @@ export class LoginDto {
   @IsString()
   @MinLength(8)
   password!: string;
+
+  // Issues a long-lived token instead of the normal short session — see AuthService.login.
+  @IsOptional()
+  @IsBoolean()
+  rememberMe?: boolean;
 }

@@ -128,7 +128,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {user && (
         <div className="shrink-0 border-t border-white/10 p-3">
-          <div className="mb-2 flex items-center gap-3 px-2">
+          <Link
+            href="/dashboard/profile"
+            className="mb-2 flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5"
+          >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-semibold uppercase text-white">
               {user.email.charAt(0)}
             </span>
@@ -136,7 +139,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="truncate text-sm text-white">{user.email}</div>
               <div className="text-xs text-slate-400">{user.role}</div>
             </div>
-          </div>
+          </Link>
           <button
             onClick={logout}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
