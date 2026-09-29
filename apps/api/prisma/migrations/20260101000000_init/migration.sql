@@ -1,38 +1,78 @@
--- CreateEnum
-CREATE TYPE "Role" AS ENUM ('OWNER', 'ADMINISTRATOR', 'SECURITY_ADMIN', 'IT_ADMIN', 'ANALYST', 'VIEWER');
+-- This baseline migration is written defensively (IF NOT EXISTS / duplicate_object-tolerant
+-- DO blocks) because it is the *first* migration ever committed for this project — earlier
+-- deployments created the schema via `prisma db push`, so a production database may already
+-- have some or all of these objects. Running this against such a database must be a safe no-op
+-- for anything that already exists, while still creating what's actually new (currently:
+-- UserActionTokenType, user_action_tokens, and users.passwordHash becoming nullable).
 
 -- CreateEnum
-CREATE TYPE "UserActionTokenType" AS ENUM ('INVITE', 'PASSWORD_RESET');
+DO $$ BEGIN
+    CREATE TYPE "Role" AS ENUM ('OWNER', 'ADMINISTRATOR', 'SECURITY_ADMIN', 'IT_ADMIN', 'ANALYST', 'VIEWER');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "DeviceStatus" AS ENUM ('PENDING', 'ONLINE', 'STALE', 'OFFLINE', 'BLOCKED', 'DECOMMISSIONED');
+DO $$ BEGIN
+    CREATE TYPE "UserActionTokenType" AS ENUM ('INVITE', 'PASSWORD_RESET');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "AgentTokenStatus" AS ENUM ('ACTIVE', 'REVOKED', 'EXPIRED');
+DO $$ BEGIN
+    CREATE TYPE "DeviceStatus" AS ENUM ('PENDING', 'ONLINE', 'STALE', 'OFFLINE', 'BLOCKED', 'DECOMMISSIONED');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "EventSeverity" AS ENUM ('INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
+DO $$ BEGIN
+    CREATE TYPE "AgentTokenStatus" AS ENUM ('ACTIVE', 'REVOKED', 'EXPIRED');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "FindingStatus" AS ENUM ('OPEN', 'RESOLVED');
+DO $$ BEGIN
+    CREATE TYPE "EventSeverity" AS ENUM ('INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "PolicyScope" AS ENUM ('TENANT', 'SITE', 'GROUP', 'DEVICE');
+DO $$ BEGIN
+    CREATE TYPE "FindingStatus" AS ENUM ('OPEN', 'RESOLVED');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "PolicyType" AS ENUM ('BROWSER', 'FILE', 'USB', 'APPLICATION', 'SECURITY', 'AGENT', 'COLLECTION');
+DO $$ BEGIN
+    CREATE TYPE "PolicyScope" AS ENUM ('TENANT', 'SITE', 'GROUP', 'DEVICE');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "RemoteActionType" AS ENUM ('REFRESH_POLICY', 'COLLECT_INVENTORY', 'RESTART_AGENT', 'LOCK_SESSION', 'START_SCREEN_VIEW', 'CAPTURE_SCREENSHOT');
+DO $$ BEGIN
+    CREATE TYPE "PolicyType" AS ENUM ('BROWSER', 'FILE', 'USB', 'APPLICATION', 'SECURITY', 'AGENT', 'COLLECTION');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "RemoteActionStatus" AS ENUM ('PENDING', 'ACKNOWLEDGED', 'COMPLETED', 'FAILED');
+DO $$ BEGIN
+    CREATE TYPE "RemoteActionType" AS ENUM ('REFRESH_POLICY', 'COLLECT_INVENTORY', 'RESTART_AGENT', 'LOCK_SESSION', 'START_SCREEN_VIEW', 'CAPTURE_SCREENSHOT');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "ReleaseChannel" AS ENUM ('STABLE', 'BETA');
+DO $$ BEGIN
+    CREATE TYPE "RemoteActionStatus" AS ENUM ('PENDING', 'ACKNOWLEDGED', 'COMPLETED', 'FAILED');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+
+-- CreateEnum
+DO $$ BEGIN
+    CREATE TYPE "ReleaseChannel" AS ENUM ('STABLE', 'BETA');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateTable
-CREATE TABLE "tenants" (
+CREATE TABLE IF NOT EXISTS "tenants" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
@@ -43,7 +83,7 @@ CREATE TABLE "tenants" (
 );
 
 -- CreateTable
-CREATE TABLE "sites" (
+CREATE TABLE IF NOT EXISTS "sites" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -53,7 +93,7 @@ CREATE TABLE "sites" (
 );
 
 -- CreateTable
-CREATE TABLE "groups" (
+CREATE TABLE IF NOT EXISTS "groups" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "siteId" TEXT,
@@ -64,7 +104,7 @@ CREATE TABLE "groups" (
 );
 
 -- CreateTable
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -78,8 +118,12 @@ CREATE TABLE "users" (
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
 
+-- AlterTable: pre-existing deployments created this column as NOT NULL — dropping NOT NULL
+-- is a no-op if it's already nullable (e.g. on a brand new database created by this same file).
+ALTER TABLE "users" ALTER COLUMN "passwordHash" DROP NOT NULL;
+
 -- CreateTable
-CREATE TABLE "user_action_tokens" (
+CREATE TABLE IF NOT EXISTS "user_action_tokens" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
@@ -93,7 +137,7 @@ CREATE TABLE "user_action_tokens" (
 );
 
 -- CreateTable
-CREATE TABLE "devices" (
+CREATE TABLE IF NOT EXISTS "devices" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "siteId" TEXT,
@@ -116,7 +160,7 @@ CREATE TABLE "devices" (
 );
 
 -- CreateTable
-CREATE TABLE "provisioning_tokens" (
+CREATE TABLE IF NOT EXISTS "provisioning_tokens" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
@@ -132,7 +176,7 @@ CREATE TABLE "provisioning_tokens" (
 );
 
 -- CreateTable
-CREATE TABLE "agent_credentials" (
+CREATE TABLE IF NOT EXISTS "agent_credentials" (
     "id" TEXT NOT NULL,
     "deviceId" TEXT NOT NULL,
     "refreshTokenHash" TEXT NOT NULL,
@@ -147,7 +191,7 @@ CREATE TABLE "agent_credentials" (
 );
 
 -- CreateTable
-CREATE TABLE "events" (
+CREATE TABLE IF NOT EXISTS "events" (
     "id" TEXT NOT NULL,
     "eventId" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
@@ -165,7 +209,7 @@ CREATE TABLE "events" (
 );
 
 -- CreateTable
-CREATE TABLE "installed_software" (
+CREATE TABLE IF NOT EXISTS "installed_software" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "deviceId" TEXT NOT NULL,
@@ -181,7 +225,7 @@ CREATE TABLE "installed_software" (
 );
 
 -- CreateTable
-CREATE TABLE "security_findings" (
+CREATE TABLE IF NOT EXISTS "security_findings" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "deviceId" TEXT NOT NULL,
@@ -198,7 +242,7 @@ CREATE TABLE "security_findings" (
 );
 
 -- CreateTable
-CREATE TABLE "policies" (
+CREATE TABLE IF NOT EXISTS "policies" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "scope" "PolicyScope" NOT NULL,
@@ -214,7 +258,7 @@ CREATE TABLE "policies" (
 );
 
 -- CreateTable
-CREATE TABLE "remote_actions" (
+CREATE TABLE IF NOT EXISTS "remote_actions" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "deviceId" TEXT NOT NULL,
@@ -231,7 +275,7 @@ CREATE TABLE "remote_actions" (
 );
 
 -- CreateTable
-CREATE TABLE "screenshots" (
+CREATE TABLE IF NOT EXISTS "screenshots" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "deviceId" TEXT NOT NULL,
@@ -246,7 +290,7 @@ CREATE TABLE "screenshots" (
 );
 
 -- CreateTable
-CREATE TABLE "agent_releases" (
+CREATE TABLE IF NOT EXISTS "agent_releases" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "version" TEXT NOT NULL,
@@ -262,7 +306,7 @@ CREATE TABLE "agent_releases" (
 );
 
 -- CreateTable
-CREATE TABLE "audit_logs" (
+CREATE TABLE IF NOT EXISTS "audit_logs" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "actorId" TEXT,
@@ -278,149 +322,145 @@ CREATE TABLE "audit_logs" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "tenants_slug_key" ON "tenants"("slug");
+CREATE UNIQUE INDEX IF NOT EXISTS "tenants_slug_key" ON "tenants"("slug");
+CREATE UNIQUE INDEX IF NOT EXISTS "sites_tenantId_name_key" ON "sites"("tenantId", "name");
+CREATE UNIQUE INDEX IF NOT EXISTS "groups_tenantId_name_key" ON "groups"("tenantId", "name");
+CREATE UNIQUE INDEX IF NOT EXISTS "users_tenantId_email_key" ON "users"("tenantId", "email");
+CREATE UNIQUE INDEX IF NOT EXISTS "user_action_tokens_tokenHash_key" ON "user_action_tokens"("tokenHash");
+CREATE INDEX IF NOT EXISTS "user_action_tokens_userId_idx" ON "user_action_tokens"("userId");
+CREATE INDEX IF NOT EXISTS "devices_tenantId_status_idx" ON "devices"("tenantId", "status");
+CREATE UNIQUE INDEX IF NOT EXISTS "provisioning_tokens_tokenHash_key" ON "provisioning_tokens"("tokenHash");
+CREATE INDEX IF NOT EXISTS "provisioning_tokens_tenantId_idx" ON "provisioning_tokens"("tenantId");
+CREATE UNIQUE INDEX IF NOT EXISTS "agent_credentials_deviceId_key" ON "agent_credentials"("deviceId");
+CREATE UNIQUE INDEX IF NOT EXISTS "agent_credentials_refreshTokenHash_key" ON "agent_credentials"("refreshTokenHash");
+CREATE UNIQUE INDEX IF NOT EXISTS "events_eventId_key" ON "events"("eventId");
+CREATE INDEX IF NOT EXISTS "events_tenantId_deviceId_occurredAt_idx" ON "events"("tenantId", "deviceId", "occurredAt");
+CREATE INDEX IF NOT EXISTS "events_tenantId_eventType_occurredAt_idx" ON "events"("tenantId", "eventType", "occurredAt");
+CREATE INDEX IF NOT EXISTS "installed_software_tenantId_deviceId_idx" ON "installed_software"("tenantId", "deviceId");
+CREATE INDEX IF NOT EXISTS "installed_software_tenantId_removedAt_idx" ON "installed_software"("tenantId", "removedAt");
+CREATE UNIQUE INDEX IF NOT EXISTS "installed_software_deviceId_name_version_key" ON "installed_software"("deviceId", "name", "version");
+CREATE INDEX IF NOT EXISTS "security_findings_tenantId_status_idx" ON "security_findings"("tenantId", "status");
+CREATE UNIQUE INDEX IF NOT EXISTS "security_findings_deviceId_code_key" ON "security_findings"("deviceId", "code");
+CREATE INDEX IF NOT EXISTS "policies_tenantId_type_idx" ON "policies"("tenantId", "type");
+CREATE UNIQUE INDEX IF NOT EXISTS "policies_tenantId_scope_scopeId_type_key" ON "policies"("tenantId", "scope", "scopeId", "type");
+CREATE INDEX IF NOT EXISTS "remote_actions_tenantId_deviceId_status_idx" ON "remote_actions"("tenantId", "deviceId", "status");
+CREATE INDEX IF NOT EXISTS "screenshots_tenantId_deviceId_capturedAt_idx" ON "screenshots"("tenantId", "deviceId", "capturedAt");
+CREATE INDEX IF NOT EXISTS "agent_releases_tenantId_channel_publishedAt_idx" ON "agent_releases"("tenantId", "channel", "publishedAt");
+CREATE UNIQUE INDEX IF NOT EXISTS "agent_releases_tenantId_version_key" ON "agent_releases"("tenantId", "version");
+CREATE INDEX IF NOT EXISTS "audit_logs_tenantId_createdAt_idx" ON "audit_logs"("tenantId", "createdAt");
 
--- CreateIndex
-CREATE UNIQUE INDEX "sites_tenantId_name_key" ON "sites"("tenantId", "name");
+-- AddForeignKey (each wrapped: ALTER TABLE ADD CONSTRAINT has no IF NOT EXISTS in Postgres)
+DO $$ BEGIN
+    ALTER TABLE "sites" ADD CONSTRAINT "sites_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "groups_tenantId_name_key" ON "groups"("tenantId", "name");
+DO $$ BEGIN
+    ALTER TABLE "groups" ADD CONSTRAINT "groups_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "users_tenantId_email_key" ON "users"("tenantId", "email");
+DO $$ BEGIN
+    ALTER TABLE "groups" ADD CONSTRAINT "groups_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "user_action_tokens_tokenHash_key" ON "user_action_tokens"("tokenHash");
+DO $$ BEGIN
+    ALTER TABLE "users" ADD CONSTRAINT "users_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "user_action_tokens_userId_idx" ON "user_action_tokens"("userId");
+DO $$ BEGIN
+    ALTER TABLE "user_action_tokens" ADD CONSTRAINT "user_action_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "devices_tenantId_status_idx" ON "devices"("tenantId", "status");
+DO $$ BEGIN
+    ALTER TABLE "devices" ADD CONSTRAINT "devices_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "provisioning_tokens_tokenHash_key" ON "provisioning_tokens"("tokenHash");
+DO $$ BEGIN
+    ALTER TABLE "devices" ADD CONSTRAINT "devices_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "provisioning_tokens_tenantId_idx" ON "provisioning_tokens"("tenantId");
+DO $$ BEGIN
+    ALTER TABLE "devices" ADD CONSTRAINT "devices_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "groups"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "agent_credentials_deviceId_key" ON "agent_credentials"("deviceId");
+DO $$ BEGIN
+    ALTER TABLE "provisioning_tokens" ADD CONSTRAINT "provisioning_tokens_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "agent_credentials_refreshTokenHash_key" ON "agent_credentials"("refreshTokenHash");
+DO $$ BEGIN
+    ALTER TABLE "agent_credentials" ADD CONSTRAINT "agent_credentials_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "events_eventId_key" ON "events"("eventId");
+DO $$ BEGIN
+    ALTER TABLE "events" ADD CONSTRAINT "events_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "events_tenantId_deviceId_occurredAt_idx" ON "events"("tenantId", "deviceId", "occurredAt");
+DO $$ BEGIN
+    ALTER TABLE "events" ADD CONSTRAINT "events_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "events_tenantId_eventType_occurredAt_idx" ON "events"("tenantId", "eventType", "occurredAt");
+DO $$ BEGIN
+    ALTER TABLE "installed_software" ADD CONSTRAINT "installed_software_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "installed_software_tenantId_deviceId_idx" ON "installed_software"("tenantId", "deviceId");
+DO $$ BEGIN
+    ALTER TABLE "installed_software" ADD CONSTRAINT "installed_software_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "installed_software_tenantId_removedAt_idx" ON "installed_software"("tenantId", "removedAt");
+DO $$ BEGIN
+    ALTER TABLE "security_findings" ADD CONSTRAINT "security_findings_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "installed_software_deviceId_name_version_key" ON "installed_software"("deviceId", "name", "version");
+DO $$ BEGIN
+    ALTER TABLE "security_findings" ADD CONSTRAINT "security_findings_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "security_findings_tenantId_status_idx" ON "security_findings"("tenantId", "status");
+DO $$ BEGIN
+    ALTER TABLE "policies" ADD CONSTRAINT "policies_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "security_findings_deviceId_code_key" ON "security_findings"("deviceId", "code");
+DO $$ BEGIN
+    ALTER TABLE "remote_actions" ADD CONSTRAINT "remote_actions_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "policies_tenantId_type_idx" ON "policies"("tenantId", "type");
+DO $$ BEGIN
+    ALTER TABLE "remote_actions" ADD CONSTRAINT "remote_actions_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE UNIQUE INDEX "policies_tenantId_scope_scopeId_type_key" ON "policies"("tenantId", "scope", "scopeId", "type");
+DO $$ BEGIN
+    ALTER TABLE "screenshots" ADD CONSTRAINT "screenshots_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "remote_actions_tenantId_deviceId_status_idx" ON "remote_actions"("tenantId", "deviceId", "status");
+DO $$ BEGIN
+    ALTER TABLE "screenshots" ADD CONSTRAINT "screenshots_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "screenshots_tenantId_deviceId_capturedAt_idx" ON "screenshots"("tenantId", "deviceId", "capturedAt");
+DO $$ BEGIN
+    ALTER TABLE "agent_releases" ADD CONSTRAINT "agent_releases_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "agent_releases_tenantId_channel_publishedAt_idx" ON "agent_releases"("tenantId", "channel", "publishedAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "agent_releases_tenantId_version_key" ON "agent_releases"("tenantId", "version");
-
--- CreateIndex
-CREATE INDEX "audit_logs_tenantId_createdAt_idx" ON "audit_logs"("tenantId", "createdAt");
-
--- AddForeignKey
-ALTER TABLE "sites" ADD CONSTRAINT "sites_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "groups" ADD CONSTRAINT "groups_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "groups" ADD CONSTRAINT "groups_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "users" ADD CONSTRAINT "users_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "user_action_tokens" ADD CONSTRAINT "user_action_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "devices" ADD CONSTRAINT "devices_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "devices" ADD CONSTRAINT "devices_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "devices" ADD CONSTRAINT "devices_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "groups"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "provisioning_tokens" ADD CONSTRAINT "provisioning_tokens_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "agent_credentials" ADD CONSTRAINT "agent_credentials_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "events" ADD CONSTRAINT "events_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "events" ADD CONSTRAINT "events_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "installed_software" ADD CONSTRAINT "installed_software_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "installed_software" ADD CONSTRAINT "installed_software_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "security_findings" ADD CONSTRAINT "security_findings_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "security_findings" ADD CONSTRAINT "security_findings_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "policies" ADD CONSTRAINT "policies_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "remote_actions" ADD CONSTRAINT "remote_actions_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "remote_actions" ADD CONSTRAINT "remote_actions_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "screenshots" ADD CONSTRAINT "screenshots_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "screenshots" ADD CONSTRAINT "screenshots_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "agent_releases" ADD CONSTRAINT "agent_releases_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
+DO $$ BEGIN
+    ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
