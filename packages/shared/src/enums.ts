@@ -75,6 +75,11 @@ export enum AgentTokenStatus {
   EXPIRED = 'EXPIRED',
 }
 
+export enum UserActionTokenType {
+  INVITE = 'INVITE',
+  PASSWORD_RESET = 'PASSWORD_RESET',
+}
+
 export enum EventSeverity {
   INFO = 'INFO',
   LOW = 'LOW',

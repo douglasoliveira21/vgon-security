@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch, ApiError, setSession } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -96,7 +97,12 @@ export default function LoginPage() {
               className="input mb-4"
             />
 
-            <label htmlFor="password" className="label">{t('login.password')}</label>
+            <div className="mb-1 flex items-center justify-between">
+              <label htmlFor="password" className="label">{t('login.password')}</label>
+              <Link href="/forgot-password" className="text-xs font-medium text-brand hover:underline">
+                {t('login.forgotPassword')}
+              </Link>
+            </div>
             <input
               id="password"
               type="password"

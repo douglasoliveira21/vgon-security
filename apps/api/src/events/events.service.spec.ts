@@ -28,7 +28,7 @@ describe('EventsService.persist', () => {
   it('stores a new event and reports "created"', async () => {
     const create = jest.fn().mockResolvedValue({});
     const prisma = { event: { create } } as any;
-    const service = new EventsService(prisma, {} as any);
+    const service = new EventsService(prisma, {} as any, { eventsReceived: { inc: jest.fn() }, eventsProcessed: { inc: jest.fn() }, eventsFailed: { inc: jest.fn() } } as any);
 
     const result = await service.persist(makeEvent());
 
@@ -39,7 +39,7 @@ describe('EventsService.persist', () => {
   it('treats a duplicate eventId (redelivered batch) as idempotent, not an error', async () => {
     const create = jest.fn().mockRejectedValue(duplicateKeyError());
     const prisma = { event: { create } } as any;
-    const service = new EventsService(prisma, {} as any);
+    const service = new EventsService(prisma, {} as any, { eventsReceived: { inc: jest.fn() }, eventsProcessed: { inc: jest.fn() }, eventsFailed: { inc: jest.fn() } } as any);
 
     const result = await service.persist(makeEvent());
 
@@ -49,7 +49,7 @@ describe('EventsService.persist', () => {
   it('rethrows any other database error instead of swallowing it', async () => {
     const create = jest.fn().mockRejectedValue(new Error('connection lost'));
     const prisma = { event: { create } } as any;
-    const service = new EventsService(prisma, {} as any);
+    const service = new EventsService(prisma, {} as any, { eventsReceived: { inc: jest.fn() }, eventsProcessed: { inc: jest.fn() }, eventsFailed: { inc: jest.fn() } } as any);
 
     await expect(service.persist(makeEvent())).rejects.toThrow('connection lost');
   });

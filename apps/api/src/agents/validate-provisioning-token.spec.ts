@@ -5,7 +5,9 @@ describe('AgentsService.validateProvisioningToken', () => {
   const build = (row: { usedAt: Date | null; expiresAt: Date } | null) => {
     const findUnique = jest.fn().mockResolvedValue(row);
     const update = jest.fn();
-    const service = new AgentsService({ provisioningToken: { findUnique, update } } as any, {} as any, {} as any);
+    const service = new AgentsService({ provisioningToken: { findUnique, update } } as any, {} as any, {} as any, {
+      agentHeartbeats: { inc: jest.fn() },
+    } as any);
     return { service, findUnique, update };
   };
   const token = 'a-long-enough-token';

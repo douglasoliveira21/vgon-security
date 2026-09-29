@@ -9,6 +9,8 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DevicesModule } from './devices/devices.module';
+import { SitesModule } from './sites/sites.module';
+import { GroupsModule } from './groups/groups.module';
 import { AgentsModule } from './agents/agents.module';
 import { EventsModule } from './events/events.module';
 import { InventoryModule } from './inventory/inventory.module';
@@ -17,6 +19,7 @@ import { RmmModule } from './rmm/rmm.module';
 import { ScreenModule } from './screen/screen.module';
 import { ReportsModule } from './reports/reports.module';
 import { HealthModule } from './health/health.module';
+import { ObservabilityModule } from './observability/observability.module';
 import { parseRedisConnection } from './config/redis-connection';
 import { RedisThrottlerStorage } from './config/redis-throttler-storage';
 
@@ -38,6 +41,8 @@ import { RedisThrottlerStorage } from './config/redis-throttler-storage';
     AuthModule,
     UsersModule,
     DevicesModule,
+    SitesModule,
+    GroupsModule,
     AgentsModule,
     EventsModule,
     InventoryModule,
@@ -46,6 +51,7 @@ import { RedisThrottlerStorage } from './config/redis-throttler-storage';
     ScreenModule,
     ReportsModule,
     HealthModule,
+    ObservabilityModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

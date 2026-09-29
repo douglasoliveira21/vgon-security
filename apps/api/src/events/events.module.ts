@@ -5,9 +5,10 @@ import { EventsService } from './events.service';
 import { EventsProcessor } from './events.processor';
 import { EVENTS_QUEUE } from './events.service';
 import { InventoryModule } from '../inventory/inventory.module';
+import { MetricsModule } from '../observability/metrics.module';
 
 @Module({
-  imports: [BullModule.registerQueue({ name: EVENTS_QUEUE }), InventoryModule],
+  imports: [BullModule.registerQueue({ name: EVENTS_QUEUE }), InventoryModule, MetricsModule],
   controllers: [EventsController],
   providers: [EventsService, EventsProcessor],
   exports: [EventsService],

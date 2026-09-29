@@ -6,6 +6,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { EventsService, EVENTS_QUEUE } from './events/events.service';
 import { EventsProcessor } from './events/events.processor';
 import { parseRedisConnection } from './config/redis-connection';
+import { MetricsModule } from './observability/metrics.module';
 
 /**
  * Phase 8: "escalabilidade horizontal". Everything the standalone event worker needs — and
@@ -21,6 +22,7 @@ import { parseRedisConnection } from './config/redis-connection';
     BullModule.registerQueue({ name: EVENTS_QUEUE }),
     PrismaModule,
     InventoryModule,
+    MetricsModule,
   ],
   providers: [EventsService, EventsProcessor],
 })

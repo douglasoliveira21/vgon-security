@@ -5,6 +5,7 @@ import { EventType, HardwareInventoryData, SecurityStateData, SoftwareInventoryD
 import { EVENTS_QUEUE, EventsService, QueuedEvent } from './events.service';
 import { InventoryIngestService } from '../inventory/inventory-ingest.service';
 import { SecurityEvaluatorService } from '../inventory/security-evaluator.service';
+import { MetricsService } from '../observability/metrics.service';
 
 // Decouples ingestion (fast, just enqueue) from persistence (Agent -> API Gateway -> Queue ->
 // Event Workers -> PostgreSQL, per the architecture doc) so a slow/unavailable DB never blocks
@@ -17,16 +18,27 @@ export class EventsProcessor extends WorkerHost {
     private readonly eventsService: EventsService,
     private readonly inventoryIngest: InventoryIngestService,
     private readonly securityEvaluator: SecurityEvaluatorService,
+    private readonly metrics: MetricsService,
   ) {
     super();
   }
 
   async process(job: Job<QueuedEvent>): Promise<void> {
-    const result = await this.eventsService.persist(job.data);
-    if (result === 'duplicate') return; // redelivery — side effects already ran the first time
+    try {
+      const result = await this.eventsService.persist(job.data);
+      this.metrics.eventsProcessed.inc(); // a duplicate is still a successfully-handled delivery
 
-    this.logger.debug(`Stored event ${job.data.eventId} (${job.data.eventType})`);
-    await this.applySideEffects(job.data);
+      if (result === 'duplicate') return; // redelivery — side effects already ran the first time
+
+      this.logger.debug(`Stored event ${job.data.eventId} (${job.data.eventType})`);
+      await this.applySideEffects(job.data);
+    } catch (err) {
+      // Side-effect failures are already swallowed inside applySideEffects; anything that
+      // reaches here is a genuine persist() failure that BullMQ will retry per the job's
+      // configured `attempts`/backoff (see EventsService.ingest).
+      this.metrics.eventsFailed.inc();
+      throw err;
+    }
   }
 
   // Phase 5: beyond the raw event row (kept for the timeline/audit trail), some event types also

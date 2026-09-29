@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthenticatedDevice } from '../common/decorators/current-device.decorator';
 import { EventEnvelopeDto } from './dto/ingest-events.dto';
 import { QueryEventsDto } from './dto/query-events.dto';
+import { MetricsService } from '../observability/metrics.service';
 
 export const EVENTS_QUEUE = 'events';
 
@@ -24,9 +25,12 @@ export class EventsService {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue(EVENTS_QUEUE) private readonly queue: Queue<QueuedEvent>,
+    private readonly metrics: MetricsService,
   ) {}
 
   async ingest(device: AuthenticatedDevice, envelopes: EventEnvelopeDto[]) {
+    this.metrics.eventsReceived.inc(envelopes.length);
+
     await this.queue.addBulk(
       envelopes.map((envelope) => ({
         name: 'ingest',

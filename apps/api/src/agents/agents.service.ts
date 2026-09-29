@@ -11,6 +11,7 @@ import { ValidateProvisioningTokenDto } from './dto/validate-provisioning-token.
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { generateOpaqueToken, hashToken } from './token.util';
+import { MetricsService } from '../observability/metrics.service';
 
 const AGENT_ACCESS_TTL = '10m';
 const AGENT_ACCESS_TTL_SECONDS = 10 * 60;
@@ -23,6 +24,7 @@ export class AgentsService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async createProvisioningToken(actor: AuthenticatedUser, dto: CreateProvisioningTokenDto, ip?: string) {
@@ -185,6 +187,7 @@ export class AgentsService {
   }
 
   async heartbeat(device: AuthenticatedDevice, dto: HeartbeatDto) {
+    this.metrics.agentHeartbeats.inc();
     await this.prisma.device.update({
       where: { id: device.deviceId },
       data: {

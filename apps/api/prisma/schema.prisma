@@ -82,17 +82,43 @@ model User {
   id           String   @id @default(uuid())
   tenantId     String
   email        String
-  passwordHash String
+  // Nullable: an invited user has no password until they accept the invite and set one
+  // (see UserActionToken/INVITE) — such a user cannot log in until passwordHash is set.
+  passwordHash String?
   name         String
   role         Role     @default(VIEWER)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actionTokens UserActionToken[]
 
   @@unique([tenantId, email])
   @@map("users")
+}
+
+enum UserActionTokenType {
+  INVITE
+  PASSWORD_RESET
+}
+
+// Single-use, short-lived, hash-only-stored token for the email-delivered invite/password-reset
+// flow — mirrors ProvisioningToken's shape/lifecycle (issue -> emailed once -> consumed once).
+model UserActionToken {
+  id        String              @id @default(uuid())
+  userId    String
+  tenantId  String
+  type      UserActionTokenType
+  tokenHash String              @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_action_tokens")
 }
 
 // ============================================================
@@ -109,34 +135,34 @@ enum DeviceStatus {
 }
 
 model Device {
-  id             String       @id @default(uuid())
-  tenantId       String
-  siteId         String?
-  groupId        String?
-  hostname       String?
-  status         DeviceStatus @default(PENDING)
-  agentVersion   String?
-  os             String?
-  osVersion      String?
-  lastSeenAt     DateTime?
-  lastHeartbeat  Json?
-  policyVersion  String?
+  id              String       @id @default(uuid())
+  tenantId        String
+  siteId          String?
+  groupId         String?
+  hostname        String?
+  status          DeviceStatus @default(PENDING)
+  agentVersion    String?
+  os              String?
+  osVersion       String?
+  lastSeenAt      DateTime?
+  lastHeartbeat   Json?
+  policyVersion   String?
   // Phase 5 (sections 12/13): latest snapshot only — history lives in the Event table via
   // hardware.inventory/security.state events; these columns are just the fast-read cache the
   // dashboard's device detail page and Security Center query without re-aggregating events.
-  hardware       Json?
-  securityState  Json?
+  hardware        Json?
+  securityState   Json?
   lastInventoryAt DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
-  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  site       Site?              @relation(fields: [siteId], references: [id], onDelete: SetNull)
-  group      Group?             @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  credential AgentCredential?
-  events     Event[]
-  software   InstalledSoftware[]
-  findings   SecurityFinding[]
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site          Site?               @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  group         Group?              @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  credential    AgentCredential?
+  events        Event[]
+  software      InstalledSoftware[]
+  findings      SecurityFinding[]
   remoteActions RemoteAction[]
   screenshots   Screenshot[]
 
@@ -147,16 +173,16 @@ model Device {
 // A provisioning token is single-use, short-lived, and scoped to a tenant.
 // It is exchanged by the installer for a device-specific AgentCredential (never a shared secret).
 model ProvisioningToken {
-  id         String    @id @default(uuid())
-  tenantId   String
-  tokenHash  String    @unique
-  siteId     String?
-  groupId    String?
-  createdById String
-  expiresAt  DateTime
-  usedAt     DateTime?
+  id             String    @id @default(uuid())
+  tenantId       String
+  tokenHash      String    @unique
+  siteId         String?
+  groupId        String?
+  createdById    String
+  expiresAt      DateTime
+  usedAt         DateTime?
   usedByDeviceId String?
-  createdAt  DateTime  @default(now())
+  createdAt      DateTime  @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -173,15 +199,15 @@ enum AgentTokenStatus {
 // Per-device credential issued after provisioning. Only hashes are stored server-side;
 // the plaintext refresh token is returned once to the Agent, which stores it via DPAPI locally.
 model AgentCredential {
-  id                  String           @id @default(uuid())
-  deviceId            String           @unique
-  refreshTokenHash    String           @unique
-  status              AgentTokenStatus @default(ACTIVE)
-  lastRotatedAt       DateTime         @default(now())
-  lastUsedAt          DateTime?
-  lastUsedIp          String?
-  expiresAt           DateTime
-  createdAt           DateTime         @default(now())
+  id               String           @id @default(uuid())
+  deviceId         String           @unique
+  refreshTokenHash String           @unique
+  status           AgentTokenStatus @default(ACTIVE)
+  lastRotatedAt    DateTime         @default(now())
+  lastUsedAt       DateTime?
+  lastUsedIp       String?
+  expiresAt        DateTime
+  createdAt        DateTime         @default(now())
 
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
@@ -204,18 +230,18 @@ enum EventSeverity {
 }
 
 model Event {
-  id             String        @id @default(uuid())
-  eventId        String        @unique // client-generated UUID; enforces idempotency on redelivery
-  tenantId       String
-  deviceId       String
-  userId         String?
-  agentVersion   String
-  eventType      String
-  severity       EventSeverity @default(INFO)
-  schemaVersion  Int           @default(1)
-  occurredAt     DateTime // Agent-reported timestamp
-  receivedAt     DateTime      @default(now()) // server-side ingestion time
-  data           Json
+  id            String        @id @default(uuid())
+  eventId       String        @unique // client-generated UUID; enforces idempotency on redelivery
+  tenantId      String
+  deviceId      String
+  userId        String?
+  agentVersion  String
+  eventType     String
+  severity      EventSeverity @default(INFO)
+  schemaVersion Int           @default(1)
+  occurredAt    DateTime // Agent-reported timestamp
+  receivedAt    DateTime      @default(now()) // server-side ingestion time
+  data          Json
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
@@ -233,16 +259,16 @@ model Event {
 // diffs (section 12: "evitar enviar o inventário completo em todos os heartbeats"), so the
 // Cloud maintains current state here rather than re-deriving it from raw events each time.
 model InstalledSoftware {
-  id          String    @id @default(uuid())
-  tenantId    String
-  deviceId    String
-  name        String
-  version     String?
-  publisher   String?
+  id           String    @id @default(uuid())
+  tenantId     String
+  deviceId     String
+  name         String
+  version      String?
+  publisher    String?
   architecture String?
-  firstSeenAt DateTime  @default(now())
-  lastSeenAt  DateTime  @default(now())
-  removedAt   DateTime?
+  firstSeenAt  DateTime  @default(now())
+  lastSeenAt   DateTime  @default(now())
+  removedAt    DateTime?
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
@@ -309,16 +335,16 @@ enum PolicyType {
 }
 
 model Policy {
-  id        String      @id @default(uuid())
-  tenantId  String
-  scope     PolicyScope
-  scopeId   String? // siteId / groupId / deviceId; '' when scope = TENANT
-  type      PolicyType
-  settings  Json
-  version   Int         @default(1)
+  id          String      @id @default(uuid())
+  tenantId    String
+  scope       PolicyScope
+  scopeId     String? // siteId / groupId / deviceId; '' when scope = TENANT
+  type        PolicyType
+  settings    Json
+  version     Int         @default(1)
   createdById String?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 

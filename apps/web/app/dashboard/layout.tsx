@@ -50,7 +50,11 @@ const NAV: Array<{ group: TranslationKey; items: NavItem[] }> = [
   },
   {
     group: 'nav.group.admin',
-    items: [{ href: '/dashboard/releases', label: 'nav.releases', icon: 'download' }],
+    items: [
+      { href: '/dashboard/organization', label: 'nav.organization', icon: 'mapPin' },
+      { href: '/dashboard/users', label: 'nav.users', icon: 'users' },
+      { href: '/dashboard/releases', label: 'nav.releases', icon: 'download' },
+    ],
   },
 ];
 
