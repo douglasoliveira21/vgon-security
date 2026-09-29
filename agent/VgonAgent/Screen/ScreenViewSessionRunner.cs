@@ -1,5 +1,7 @@
 using System.IO.Pipes;
 using System.Reflection;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using VgonAgent.Configuration;
@@ -73,17 +75,33 @@ public sealed class ScreenViewSessionRunner : IScreenViewSessionRunner
         System.Diagnostics.Process? helper = null;
         NamedPipeServerStream? pipe = null;
 
+        ScreenDiagnostics.Log($"[service] session {actionId}: starting");
         try
         {
             var pipeName = "VgonScreenView_" + Guid.NewGuid().ToString("N");
-            pipe = new NamedPipeServerStream(pipeName, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            // The service runs as LocalSystem; the capture helper runs as whichever interactive
+            // user is logged on. A NamedPipeServerStream's default ACL doesn't reliably grant that
+            // (possibly non-admin) user connect rights, so it's granted explicitly here — without
+            // this, the helper's Connect() fails with UnauthorizedAccessException and the server
+            // side just times out waiting, with nothing on either side explaining why.
+            var pipeSecurity = new PipeSecurity();
+            pipeSecurity.AddAccessRule(new PipeAccessRule(
+                new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null),
+                PipeAccessRights.ReadWrite,
+                AccessControlType.Allow));
+            pipe = NamedPipeServerStreamAcl.Create(
+                pipeName, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 0, 0, pipeSecurity);
 
             helper = _launcher.LaunchInActiveSession(AgentExePath, $"--live-view {pipeName} {_options.ScreenViewFrameIntervalMs}");
             if (helper is null)
             {
+                _logger.LogWarning("Screen view session {ActionId}: could not launch the capture helper in the active session (see the preceding warning for why)", actionId);
+                ScreenDiagnostics.Log($"[service] session {actionId}: LaunchInActiveSession returned null (no active session, or WTSQueryUserToken/CreateProcessAsUser failed)");
                 await CompleteAsync(actionId, success: false, framesSent: 0, stopwatch, "No active interactive session found");
                 return;
             }
+            _logger.LogInformation("Screen view session {ActionId}: capture helper launched as PID {Pid}, waiting for it to connect", actionId, helper.Id);
+            ScreenDiagnostics.Log($"[service] session {actionId}: helper launched as PID {helper.Id}, waiting for pipe connection");
 
             using var connectCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             try
@@ -92,9 +110,19 @@ public sealed class ScreenViewSessionRunner : IScreenViewSessionRunner
             }
             catch (OperationCanceledException)
             {
+                // Process.ExitCode throws for a Process obtained via GetProcessById (as ours is —
+                // see WindowsInteractiveProcessLauncher) unless this same object called Start()
+                // itself, regardless of whether it has actually exited — HasExited alone is safe.
+                var state = helper.HasExited ? "already exited" : "still running";
+                _logger.LogWarning(
+                    "Screen view session {ActionId}: capture helper did not connect within 10s (helper process {State})",
+                    actionId, state);
+                ScreenDiagnostics.Log($"[service] session {actionId}: pipe.WaitForConnectionAsync timed out after 10s; helper process is {state}");
                 await CompleteAsync(actionId, success: false, framesSent: 0, stopwatch, "Screen capture helper did not connect in time");
                 return;
             }
+            _logger.LogInformation("Screen view session {ActionId}: capture helper connected, streaming frames", actionId);
+            ScreenDiagnostics.Log($"[service] session {actionId}: pipe connected, entering frame loop");
 
             var maxDuration = TimeSpan.FromSeconds(_options.ScreenViewMaxDurationSeconds);
             while (stopwatch.Elapsed < maxDuration)
@@ -108,10 +136,15 @@ public sealed class ScreenViewSessionRunner : IScreenViewSessionRunner
                     }
                     catch (Exception ex) when (ex is OperationCanceledException or EndOfStreamException or IOException)
                     {
+                        ScreenDiagnostics.Log($"[service] session {actionId}: pipe read ended after {frameCount} frame(s)", ex);
                         break; // helper went stale/died/disconnected — end the session
                     }
                 }
-                if (frame is null) break; // helper closed the pipe cleanly
+                if (frame is null)
+                {
+                    ScreenDiagnostics.Log($"[service] session {actionId}: helper closed the pipe cleanly after {frameCount} frame(s)");
+                    break;
+                }
 
                 var (_, accessToken) = await _tokenProvider.GetAccessTokenAsync(CancellationToken.None);
                 bool shouldContinue;
@@ -122,17 +155,24 @@ public sealed class ScreenViewSessionRunner : IScreenViewSessionRunner
                 catch (VgonApiException ex)
                 {
                     _logger.LogWarning(ex, "Screen frame upload failed for session {ActionId}; ending session", actionId);
+                    ScreenDiagnostics.Log($"[service] session {actionId}: frame upload #{frameCount + 1} ({frame.Length} bytes) failed", ex);
                     break;
                 }
                 frameCount++;
+                if (frameCount == 1 || frameCount % 10 == 0)
+                {
+                    ScreenDiagnostics.Log($"[service] session {actionId}: uploaded frame #{frameCount} ({frame.Length} bytes), continue={shouldContinue}");
+                }
                 if (!shouldContinue) break;
             }
 
+            ScreenDiagnostics.Log($"[service] session {actionId}: ending normally after {frameCount} frame(s)");
             await CompleteAsync(actionId, success: true, frameCount, stopwatch, null);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Screen view session {ActionId} failed", actionId);
+            ScreenDiagnostics.Log($"[service] session {actionId}: unhandled exception after {frameCount} frame(s)", ex);
             await CompleteAsync(actionId, success: false, frameCount, stopwatch, ex.Message);
         }
         finally

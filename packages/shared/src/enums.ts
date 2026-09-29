@@ -146,6 +146,10 @@ export enum RemoteActionType {
   // (mouse/keyboard) channel exists anywhere in this pipeline — the Agent never receives or
   // could receive input events for this action, only ever sends frames out.
   START_SCREEN_VIEW = 'START_SCREEN_VIEW',
+  // On-demand version of ScreenshotCollector's periodic, silent capture (no on-screen notice —
+  // unlike START_SCREEN_VIEW above) — wakes it immediately instead of waiting for its next
+  // interval, the same ICollectionTrigger pattern COLLECT_INVENTORY already uses.
+  CAPTURE_SCREENSHOT = 'CAPTURE_SCREENSHOT',
 }
 
 export enum RemoteActionStatus {

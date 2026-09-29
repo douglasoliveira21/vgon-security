@@ -33,6 +33,7 @@ public static class RemoteActionType
     public const string RestartAgent = "RESTART_AGENT";
     public const string LockSession = "LOCK_SESSION";
     public const string StartScreenView = "START_SCREEN_VIEW";
+    public const string CaptureScreenshot = "CAPTURE_SCREENSHOT";
 }
 
 public sealed class LatestReleaseInfo

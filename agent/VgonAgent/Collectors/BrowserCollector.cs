@@ -30,6 +30,8 @@ public sealed class BrowserCollector : BackgroundService
     private readonly List<IBrowserHistoryReader> _readers;
     private readonly BrowserCursorStore _cursorStore;
     private readonly string _tempDirectory;
+    private int _staleFilesRemovedSinceStart;
+    private bool _highLeakRateWarned;
 
     private static readonly string AgentVersion =
         Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.1.0";
@@ -103,6 +105,8 @@ public sealed class BrowserCollector : BackgroundService
 
     private async Task PollOnceAsync(CancellationToken ct)
     {
+        SweepStaleTempCopies();
+
         foreach (var reader in _readers)
         {
             IEnumerable<ProfileHistoryDatabase> databases;
@@ -122,6 +126,66 @@ public sealed class BrowserCollector : BackgroundService
             {
                 await ProcessDatabaseAsync(reader, database, ct);
             }
+        }
+    }
+
+    /// <summary>
+    /// BrowserHistoryCopier.TryDelete() already removes each temp copy right after it's read, but
+    /// silently swallows any failure to do so (e.g. antivirus real-time scanning holding a
+    /// transient lock on a freshly-written .sqlite file) — that's the right call for a single
+    /// delete, but with nothing else backstopping it, a persistent failure mode there
+    /// accumulates one orphaned copy (hundreds of KB to several MB each) every poll cycle,
+    /// forever, until the disk fills up. This sweep is that backstop: anything left over from
+    /// more than a few cycles ago gets removed here regardless of why the immediate delete
+    /// didn't take.
+    /// </summary>
+    private void SweepStaleTempCopies()
+    {
+        try
+        {
+            if (!Directory.Exists(_tempDirectory)) return;
+
+            var cutoff = DateTime.UtcNow.AddMinutes(-5);
+            var removed = 0;
+            foreach (var file in Directory.EnumerateFiles(_tempDirectory))
+            {
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(file) < cutoff)
+                    {
+                        File.Delete(file);
+                        removed++;
+                    }
+                }
+                catch
+                {
+                    // Still locked or already gone — next sweep gets another chance.
+                }
+            }
+
+            // Logged at Debug, not Warning: on a machine where the immediate delete keeps missing
+            // (see the doc comment above), this would otherwise fire every single poll cycle
+            // forever and drown out every other collector's log output — see the one-time-per-
+            // restart warning below instead, which is what should actually get attention.
+            if (removed > 0)
+            {
+                _logger.LogDebug("Removed {Count} stale browser-cache temp file(s) older than 5 minutes", removed);
+                _staleFilesRemovedSinceStart += removed;
+                if (_staleFilesRemovedSinceStart >= 200 && !_highLeakRateWarned)
+                {
+                    _highLeakRateWarned = true;
+                    _logger.LogWarning(
+                        "Removed {Count} stale browser-cache temp files since the Agent started — the " +
+                        "immediate delete-after-use in BrowserHistoryCopier is failing persistently, not " +
+                        "just occasionally (e.g. antivirus locking freshly-copied .sqlite files). The 5-minute " +
+                        "sweep is keeping the disk safe, but this is worth investigating.",
+                        _staleFilesRemovedSinceStart);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "browser-cache cleanup sweep failed; will retry next cycle");
         }
     }
 

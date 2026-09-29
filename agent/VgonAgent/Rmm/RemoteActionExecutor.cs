@@ -76,6 +76,12 @@ public sealed class RemoteActionExecutor
                     // and won't get another chance to call the completion endpoint.
                     return new RemoteActionResult(true, null, null);
 
+                case RemoteActionType.CaptureScreenshot:
+                    // Wakes ScreenshotCollector immediately — same silent, no-banner capture as
+                    // its periodic run, just on demand instead of waiting out the interval.
+                    _trigger.TriggerNow("screenshot");
+                    return new RemoteActionResult(true, null, null);
+
                 case RemoteActionType.StartScreenView:
                     var started = _screenViewRunner.TryStart(action.Id);
                     return started

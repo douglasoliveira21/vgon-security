@@ -104,6 +104,7 @@ export const pt: Record<TranslationKey, string> = {
   'devices.queuing': 'Enviando...',
   'devices.action.REFRESH_POLICY': 'Atualizar política',
   'devices.action.COLLECT_INVENTORY': 'Coletar inventário agora',
+  'devices.action.CAPTURE_SCREENSHOT': 'Tirar uma captura de tela agora',
   'devices.action.RESTART_AGENT': 'Reiniciar Agente',
   'devices.action.LOCK_SESSION': 'Bloquear sessão',
   'devices.queued': '"{action}" na fila — o Agente executa na próxima verificação (até 30 s).',
@@ -119,6 +120,8 @@ export const pt: Record<TranslationKey, string> = {
   'liveScreen.error': 'Não foi possível iniciar a visualização de tela.',
   'liveScreen.ended': 'Sessão encerrada.',
   'liveScreen.stop': 'Encerrar visualização',
+  'liveScreen.fullscreen': 'Tela cheia',
+  'liveScreen.exitFullscreen': 'Sair da tela cheia',
   'liveScreen.notice':
     'Somente visualização — nenhuma entrada de mouse ou teclado é enviada a este dispositivo. Um aviso é exibido na tela dele durante toda a sessão.',
 

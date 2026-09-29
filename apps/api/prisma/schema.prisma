@@ -339,6 +339,7 @@ enum RemoteActionType {
   RESTART_AGENT
   LOCK_SESSION
   START_SCREEN_VIEW
+  CAPTURE_SCREENSHOT
 }
 
 enum RemoteActionStatus {

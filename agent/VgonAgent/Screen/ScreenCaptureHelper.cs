@@ -27,8 +27,9 @@ public static class ScreenCaptureHelper
             File.WriteAllBytes(outputPath, bytes);
             return 0;
         }
-        catch
+        catch (Exception ex)
         {
+            ScreenDiagnostics.Log("[helper] capture-once failed", ex);
             return 2;
         }
     }
@@ -39,6 +40,7 @@ public static class ScreenCaptureHelper
     /// service does that directly once the Cloud says to stop or the max duration is hit).</summary>
     public static int RunLiveView(string pipeName, int intervalMs)
     {
+        ScreenDiagnostics.Log($"[helper] starting, pipe={pipeName}, intervalMs={intervalMs}, pid={Environment.ProcessId}, user={Environment.UserName}");
         TrySetDpiAwareness();
 
         // WinForms (the banner + its message pump) needs a genuine STA thread — top-level
@@ -52,24 +54,33 @@ public static class ScreenCaptureHelper
             {
                 pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.Out);
                 pipe.Connect(10_000);
+                ScreenDiagnostics.Log("[helper] pipe connected");
             }
-            catch
+            catch (Exception ex)
             {
+                ScreenDiagnostics.Log("[helper] pipe.Connect failed", ex);
                 exitCode = 1;
                 return;
             }
 
+            var frameCount = 0;
             using var banner = new ScreenViewBannerForm();
             using var timer = new System.Windows.Forms.Timer { Interval = Math.Max(intervalMs, 250) };
             timer.Tick += (_, _) =>
             {
                 try
                 {
-                    var (bytes, _, _) = CaptureJpeg(maxWidth: 1280, quality: 45);
+                    var (bytes, w, h) = CaptureJpeg(maxWidth: 1280, quality: 45);
                     PipeFraming.WriteFrameAsync(pipe, bytes, CancellationToken.None).GetAwaiter().GetResult();
+                    frameCount++;
+                    if (frameCount == 1 || frameCount % 10 == 0)
+                    {
+                        ScreenDiagnostics.Log($"[helper] wrote frame #{frameCount} ({bytes.Length} bytes, {w}x{h})");
+                    }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    ScreenDiagnostics.Log($"[helper] capture/write failed on frame #{frameCount + 1}; stopping", ex);
                     timer.Stop();
                     Application.Exit();
                 }
@@ -77,12 +88,15 @@ public static class ScreenCaptureHelper
 
             banner.Show();
             timer.Start();
+            ScreenDiagnostics.Log("[helper] banner shown, timer started, entering message loop");
             Application.Run();
+            ScreenDiagnostics.Log($"[helper] message loop exited after {frameCount} frame(s)");
             pipe.Dispose();
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         thread.Join();
+        ScreenDiagnostics.Log($"[helper] exiting with code {exitCode}");
         return exitCode;
     }
 

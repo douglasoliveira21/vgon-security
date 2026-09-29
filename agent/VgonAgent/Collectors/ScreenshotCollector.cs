@@ -26,6 +26,7 @@ public sealed class ScreenshotCollector : BackgroundService
     private readonly IAccessTokenProvider _tokenProvider;
     private readonly ICollectorStatusRegistry _status;
     private readonly IPolicyStore _policyStore;
+    private readonly ICollectionTrigger _trigger;
     private readonly AgentOptions _options;
     private readonly ILogger<ScreenshotCollector> _logger;
 
@@ -37,6 +38,7 @@ public sealed class ScreenshotCollector : BackgroundService
         IAccessTokenProvider tokenProvider,
         ICollectorStatusRegistry status,
         IPolicyStore policyStore,
+        ICollectionTrigger trigger,
         IOptions<AgentOptions> options,
         ILogger<ScreenshotCollector> logger)
     {
@@ -45,6 +47,7 @@ public sealed class ScreenshotCollector : BackgroundService
         _tokenProvider = tokenProvider;
         _status = status;
         _policyStore = policyStore;
+        _trigger = trigger;
         _options = options.Value;
         _logger = logger;
     }
@@ -77,7 +80,9 @@ public sealed class ScreenshotCollector : BackgroundService
 
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(_options.ScreenshotIntervalSeconds), stoppingToken);
+                // WaitOrDelayAsync lets CAPTURE_SCREENSHOT (RemoteActionExecutor) wake this up
+                // immediately instead of waiting out the rest of the normal interval.
+                await _trigger.WaitOrDelayAsync(CollectorName, TimeSpan.FromSeconds(_options.ScreenshotIntervalSeconds), stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -90,7 +95,13 @@ public sealed class ScreenshotCollector : BackgroundService
 
     private async Task CaptureOnceAsync(CancellationToken ct)
     {
-        var tempFile = Path.Combine(Path.GetTempPath(), $"vgon-screenshot-{Guid.NewGuid():N}.jpg");
+        // NOT Path.GetTempPath(): that resolves against THIS (service) process's environment —
+        // LocalSystem's temp dir (C:\Windows\Temp or \SystemTemp) — which the interactive-session
+        // helper that actually writes the file has no access to, since it runs as a different,
+        // normal user. DataDirectory (ProgramData\VgonSecurityPlus) is shared and writable by both.
+        var tempDir = Path.Combine(_options.DataDirectory, "screenshot-tmp");
+        Directory.CreateDirectory(tempDir);
+        var tempFile = Path.Combine(tempDir, $"vgon-screenshot-{Guid.NewGuid():N}.jpg");
         System.Diagnostics.Process? helper = null;
         try
         {

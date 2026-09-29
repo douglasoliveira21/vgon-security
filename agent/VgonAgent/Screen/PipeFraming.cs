@@ -5,6 +5,16 @@ namespace VgonAgent.Screen;
 /// between the main service process and the interactive-session capture helper it launches (see
 /// <see cref="IInteractiveProcessLauncher"/>). Pure stream operations, independent of
 /// NamedPipeStream specifically, so this is unit-testable against a MemoryStream.
+///
+/// Every await here uses ConfigureAwait(false) — not just style. The helper process
+/// (<see cref="ScreenCaptureHelper"/>) calls into this synchronously
+/// (<c>.GetAwaiter().GetResult()</c>) from a WinForms Timer.Tick handler running on the UI
+/// thread, under a WindowsFormsSynchronizationContext. Without ConfigureAwait(false), the
+/// continuation after each internal await would need to resume back on that same UI thread via
+/// the message loop — which can't happen, because that thread is the one blocked waiting on
+/// GetResult(). That's a deadlock, and it's exactly what happened before this was added: the
+/// helper hung forever on its very first frame, with no exception and nothing in any log, until
+/// the service's own 10s read timeout gave up and killed it.
 /// </summary>
 public static class PipeFraming
 {
@@ -12,12 +22,12 @@ public static class PipeFraming
     {
         var header = new byte[4];
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(header, (uint)payload.Length);
-        await stream.WriteAsync(header, ct);
+        await stream.WriteAsync(header, ct).ConfigureAwait(false);
         if (payload.Length > 0)
         {
-            await stream.WriteAsync(payload, ct);
+            await stream.WriteAsync(payload, ct).ConfigureAwait(false);
         }
-        await stream.FlushAsync(ct);
+        await stream.FlushAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>Returns null on a clean end-of-stream before any byte of a new frame arrives
@@ -27,14 +37,14 @@ public static class PipeFraming
     public static async Task<byte[]?> ReadFrameAsync(Stream stream, CancellationToken ct)
     {
         var header = new byte[4];
-        var read = await ReadExactOrZeroAsync(stream, header, ct);
+        var read = await ReadExactOrZeroAsync(stream, header, ct).ConfigureAwait(false);
         if (read == 0) return null;
 
         var length = (int)System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(header);
         var payload = new byte[length];
         if (length > 0)
         {
-            await ReadExactAsync(stream, payload, ct);
+            await ReadExactAsync(stream, payload, ct).ConfigureAwait(false);
         }
         return payload;
     }
@@ -45,7 +55,7 @@ public static class PipeFraming
         var offset = 0;
         while (offset < buffer.Length)
         {
-            var read = await stream.ReadAsync(buffer.AsMemory(offset, buffer.Length - offset), ct);
+            var read = await stream.ReadAsync(buffer.AsMemory(offset, buffer.Length - offset), ct).ConfigureAwait(false);
             if (read == 0)
             {
                 if (offset == 0) return 0;
@@ -61,7 +71,7 @@ public static class PipeFraming
         var offset = 0;
         while (offset < buffer.Length)
         {
-            var read = await stream.ReadAsync(buffer.AsMemory(offset, buffer.Length - offset), ct);
+            var read = await stream.ReadAsync(buffer.AsMemory(offset, buffer.Length - offset), ct).ConfigureAwait(false);
             if (read == 0) throw new EndOfStreamException("Stream ended mid-frame");
             offset += read;
         }

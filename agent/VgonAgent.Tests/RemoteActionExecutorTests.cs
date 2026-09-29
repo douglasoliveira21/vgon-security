@@ -136,6 +136,20 @@ public sealed class RemoteActionExecutorTests : IDisposable
     }
 
     [Fact]
+    public async Task CAPTURE_SCREENSHOT_wakes_the_screenshot_collector_and_completes_immediately()
+    {
+        var (executor, _, trigger, _, _, _) = MakeExecutor();
+
+        var result = await executor.ExecuteAsync(Action(RemoteActionType.CaptureScreenshot), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.False(result.Deferred);
+        var start = DateTimeOffset.UtcNow;
+        await trigger.WaitOrDelayAsync("screenshot", TimeSpan.FromSeconds(10), CancellationToken.None);
+        Assert.True(DateTimeOffset.UtcNow - start < TimeSpan.FromSeconds(5), "screenshot collector was not triggered");
+    }
+
+    [Fact]
     public async Task START_SCREEN_VIEW_starts_the_session_runner_and_defers_completion()
     {
         var (executor, _, _, _, _, screenViewRunner) = MakeExecutor();

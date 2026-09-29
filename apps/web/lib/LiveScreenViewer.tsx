@@ -39,10 +39,30 @@ export function LiveScreenViewer({ deviceId, deviceName, onClose }: { deviceId: 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [frameSrc, setFrameSrc] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const sessionRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const lastObjectUrl = useRef<string | null>(null);
   const stoppingRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await containerRef.current?.requestFullscreen();
+      }
+    } catch {
+      /* Fullscreen API blocked (e.g. no user gesture context, or unsupported) — non-fatal */
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -129,26 +149,43 @@ export function LiveScreenViewer({ deviceId, deviceName, onClose }: { deviceId: 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4">
-      <div className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-slate-900 shadow-2xl">
+      <div
+        ref={containerRef}
+        className={`flex w-full flex-col overflow-hidden bg-slate-900 shadow-2xl ${
+          isFullscreen ? 'h-full max-w-none' : 'max-h-full max-w-4xl rounded-xl'
+        }`}
+      >
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
           <div className="flex items-center gap-2">
             <Icon name="activity" className="h-4 w-4 text-red-400" />
             <span className="font-medium">{t('liveScreen.title', { device: deviceName })}</span>
             {phase === 'live' && <span className="font-mono text-xs text-slate-400">{mm}:{ss}</span>}
           </div>
-          <button onClick={handleStop} className="rounded-md p-1.5 text-slate-300 hover:bg-white/10 hover:text-white" aria-label={t('common.close')}>
-            <Icon name="x" className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {frameSrc && (
+              <button
+                onClick={toggleFullscreen}
+                className="rounded-md p-1.5 text-slate-300 hover:bg-white/10 hover:text-white"
+                aria-label={t(isFullscreen ? 'liveScreen.exitFullscreen' : 'liveScreen.fullscreen')}
+                title={t(isFullscreen ? 'liveScreen.exitFullscreen' : 'liveScreen.fullscreen')}
+              >
+                <Icon name={isFullscreen ? 'compress' : 'expand'} className="h-4 w-4" />
+              </button>
+            )}
+            <button onClick={handleStop} className="rounded-md p-1.5 text-slate-300 hover:bg-white/10 hover:text-white" aria-label={t('common.close')}>
+              <Icon name="x" className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex min-h-[50vh] flex-1 items-center justify-center bg-black">
+        <div className={`flex flex-1 items-center justify-center bg-black ${isFullscreen ? '' : 'min-h-[50vh]'}`}>
           {phase === 'starting' && <p className="text-sm text-slate-400">{t('liveScreen.starting')}</p>}
           {phase === 'waiting' && <p className="px-8 text-center text-sm text-slate-400">{t('liveScreen.waiting')}</p>}
           {phase === 'error' && <p className="px-8 text-center text-sm text-red-400">{errorMessage ?? t('liveScreen.error')}</p>}
           {phase === 'ended' && <p className="text-sm text-slate-400">{t('liveScreen.ended')}</p>}
           {frameSrc && (phase === 'live' || phase === 'ended') && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={frameSrc} alt="" className="max-h-[70vh] w-full object-contain" />
+            <img src={frameSrc} alt="" className={`w-full object-contain ${isFullscreen ? 'h-full' : 'max-h-[70vh]'}`} onDoubleClick={toggleFullscreen} />
           )}
         </div>
 

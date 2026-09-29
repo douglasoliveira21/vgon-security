@@ -103,6 +103,7 @@ export const en = {
   'devices.queuing': 'Queuing...',
   'devices.action.REFRESH_POLICY': 'Refresh policy',
   'devices.action.COLLECT_INVENTORY': 'Collect inventory now',
+  'devices.action.CAPTURE_SCREENSHOT': 'Take a screenshot now',
   'devices.action.RESTART_AGENT': 'Restart Agent',
   'devices.action.LOCK_SESSION': 'Lock session',
   'devices.queued': '"{action}" queued — the Agent runs it on its next check (up to 30 s).',
@@ -118,6 +119,8 @@ export const en = {
   'liveScreen.error': 'Could not start the screen view session.',
   'liveScreen.ended': 'Session ended.',
   'liveScreen.stop': 'Stop viewing',
+  'liveScreen.fullscreen': 'Full screen',
+  'liveScreen.exitFullscreen': 'Exit full screen',
   'liveScreen.notice':
     'View-only — no mouse or keyboard input is sent to this device. A notice is shown on its screen for the whole session.',
 

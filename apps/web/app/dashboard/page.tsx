@@ -22,7 +22,7 @@ interface ProvisioningTokenResponse {
   expiresAt: string;
 }
 
-const ACTION_TYPES = ['REFRESH_POLICY', 'COLLECT_INVENTORY', 'RESTART_AGENT', 'LOCK_SESSION'] as const;
+const ACTION_TYPES = ['REFRESH_POLICY', 'COLLECT_INVENTORY', 'CAPTURE_SCREENSHOT', 'RESTART_AGENT', 'LOCK_SESSION'] as const;
 
 export default function DashboardPage() {
   const { t, formatDateTime, relativeTime } = useI18n();
