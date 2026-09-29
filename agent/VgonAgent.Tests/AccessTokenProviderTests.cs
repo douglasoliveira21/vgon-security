@@ -63,6 +63,22 @@ public sealed class FakeVgonApiClient : IVgonApiClient
 
     public Task<LatestReleaseInfo?> GetLatestReleaseAsync(string accessToken, string channel, CancellationToken ct) =>
         Task.FromResult<LatestReleaseInfo?>(null);
+
+    public List<byte[]> UploadedScreenshots { get; } = [];
+    public List<byte[]> UploadedFrames { get; } = [];
+    public bool NextFrameShouldContinue { get; set; } = true;
+
+    public Task UploadScreenshotAsync(string accessToken, byte[] jpegBytes, DateTimeOffset capturedAt, int? width, int? height, CancellationToken ct)
+    {
+        UploadedScreenshots.Add(jpegBytes);
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> UploadScreenFrameAsync(string accessToken, string sessionId, byte[] jpegBytes, CancellationToken ct)
+    {
+        UploadedFrames.Add(jpegBytes);
+        return Task.FromResult(NextFrameShouldContinue);
+    }
 }
 
 public sealed class AccessTokenProviderTests

@@ -14,6 +14,7 @@ import { EventsModule } from './events/events.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { PoliciesModule } from './policies/policies.module';
 import { RmmModule } from './rmm/rmm.module';
+import { ScreenModule } from './screen/screen.module';
 import { ReportsModule } from './reports/reports.module';
 import { HealthModule } from './health/health.module';
 import { parseRedisConnection } from './config/redis-connection';
@@ -42,6 +43,7 @@ import { RedisThrottlerStorage } from './config/redis-throttler-storage';
     InventoryModule,
     PoliciesModule,
     RmmModule,
+    ScreenModule,
     ReportsModule,
     HealthModule,
   ],

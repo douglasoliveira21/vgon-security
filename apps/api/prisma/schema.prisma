@@ -30,6 +30,7 @@ model Tenant {
   policies           Policy[]
   remoteActions      RemoteAction[]
   agentReleases      AgentRelease[]
+  screenshots        Screenshot[]
 
   @@map("tenants")
 }
@@ -137,6 +138,7 @@ model Device {
   software   InstalledSoftware[]
   findings   SecurityFinding[]
   remoteActions RemoteAction[]
+  screenshots   Screenshot[]
 
   @@index([tenantId, status])
   @@map("devices")
@@ -336,6 +338,7 @@ enum RemoteActionType {
   COLLECT_INVENTORY
   RESTART_AGENT
   LOCK_SESSION
+  START_SCREEN_VIEW
 }
 
 enum RemoteActionStatus {
@@ -363,6 +366,31 @@ model RemoteAction {
 
   @@index([tenantId, deviceId, status])
   @@map("remote_actions")
+}
+
+// ============================================================
+// Periodic screenshots (silent, on an interval — see ScreenshotCollector on the Agent). Distinct
+// from the live screen-view session above: that one streams ephemeral frames relayed through
+// Redis pub/sub and is never persisted, while these rows ARE the durable, browsable record.
+// Pruned on write (ScreenshotsService) rather than via a separate cron job — see there for why.
+// ============================================================
+
+model Screenshot {
+  id         String   @id @default(uuid())
+  tenantId   String
+  deviceId   String
+  capturedAt DateTime // Agent-reported capture time
+  receivedAt DateTime @default(now())
+  width      Int?
+  height     Int?
+  sizeBytes  Int
+  image      Bytes // JPEG bytes
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, deviceId, capturedAt])
+  @@map("screenshots")
 }
 
 // ============================================================

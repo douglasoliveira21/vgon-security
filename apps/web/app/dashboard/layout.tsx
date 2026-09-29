@@ -31,6 +31,7 @@ const NAV: Array<{ group: TranslationKey; items: NavItem[] }> = [
       { href: '/dashboard/files', label: 'nav.files', icon: 'file' },
       { href: '/dashboard/usb', label: 'nav.usb', icon: 'usb' },
       { href: '/dashboard/printers', label: 'nav.printers', icon: 'printer' },
+      { href: '/dashboard/screenshots', label: 'nav.screenshots', icon: 'camera' },
     ],
   },
   {

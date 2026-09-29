@@ -11,7 +11,21 @@ using VgonAgent.Identity;
 using VgonAgent.Policy;
 using VgonAgent.Queue;
 using VgonAgent.Rmm;
+using VgonAgent.Screen;
 using VgonAgent.Services;
+
+// Helper-mode: this same executable, launched by the service inside the active interactive
+// session (see IInteractiveProcessLauncher), to do the one thing that needs a real desktop — a
+// screen capture, or a live-view session with its on-screen notice banner. Exits immediately
+// rather than falling through to the normal Worker host below.
+if (args.Length >= 2 && args[0] == "--capture-once")
+{
+    Environment.Exit(ScreenCaptureHelper.RunCaptureOnce(args[1]));
+}
+if (args.Length >= 3 && args[0] == "--live-view")
+{
+    Environment.Exit(ScreenCaptureHelper.RunLiveView(args[1], int.Parse(args[2])));
+}
 
 var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
 {
@@ -35,6 +49,8 @@ builder.Services.AddSingleton<ICollectorStatusRegistry, CollectorStatusRegistry>
 builder.Services.AddSingleton<IPolicyStore, PolicyStore>();
 builder.Services.AddSingleton<ICollectionTrigger, CollectionTrigger>();
 builder.Services.AddSingleton<ISystemActions, WindowsSystemActions>();
+builder.Services.AddSingleton<IInteractiveProcessLauncher, WindowsInteractiveProcessLauncher>();
+builder.Services.AddSingleton<IScreenViewSessionRunner, ScreenViewSessionRunner>();
 builder.Services.AddSingleton<RemoteActionExecutor>();
 builder.Services.AddSingleton<IUsbDeviceEnumerator>(sp =>
     new WmiUsbDeviceEnumerator(sp.GetRequiredService<ILoggerFactory>().CreateLogger("VgonAgent.UsbEnumerator")));
@@ -66,6 +82,7 @@ builder.Services.AddHostedService<PrinterCollector>();
 builder.Services.AddHostedService<HardwareCollector>();
 builder.Services.AddHostedService<SoftwareCollector>();
 builder.Services.AddHostedService<SecurityCollector>();
+builder.Services.AddHostedService<ScreenshotCollector>();
 builder.Services.AddHostedService<EventUploaderService>();
 builder.Services.AddHostedService<HeartbeatService>();
 builder.Services.AddHostedService<PolicyRefreshService>();

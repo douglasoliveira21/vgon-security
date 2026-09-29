@@ -78,12 +78,18 @@ public sealed class RemoteActionPollingService : BackgroundService
             _logger.LogInformation("Executing remote action {Type} ({Id})", action.Type, action.Id);
             var result = await _executor.ExecuteAsync(action, ct);
 
-            await _api.CompleteActionAsync(accessToken, action.Id, new CompleteRemoteActionRequest
+            // Deferred (currently only START_SCREEN_VIEW): a background session owns reporting
+            // its own outcome, minutes from now — completing it here too would end the session
+            // on its very first poll cycle instead of when it actually finishes.
+            if (!result.Deferred)
             {
-                Success = result.Success,
-                Result = result.Result,
-                ErrorMessage = result.ErrorMessage,
-            }, ct);
+                await _api.CompleteActionAsync(accessToken, action.Id, new CompleteRemoteActionRequest
+                {
+                    Success = result.Success,
+                    Result = result.Result,
+                    ErrorMessage = result.ErrorMessage,
+                }, ct);
+            }
 
             if (action.Type == RemoteActionType.RestartAgent)
             {

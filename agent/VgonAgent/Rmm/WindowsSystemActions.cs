@@ -23,7 +23,7 @@ public sealed class WindowsSystemActions : ISystemActions
 
     public bool LockActiveSession()
     {
-        var activeSessionId = FindActiveSessionId();
+        var activeSessionId = ActiveSessionLocator.FindActiveSessionId();
         if (activeSessionId is null)
         {
             _logger.LogInformation("No active interactive session found to lock");
@@ -45,60 +45,6 @@ public sealed class WindowsSystemActions : ISystemActions
         Environment.Exit(0);
     }
 
-    private int? FindActiveSessionId()
-    {
-        if (!WTSEnumerateSessions(IntPtr.Zero, 0, 1, out var sessionsPtr, out var count))
-        {
-            return null;
-        }
-
-        try
-        {
-            var size = Marshal.SizeOf<WTS_SESSION_INFO>();
-            for (var i = 0; i < count; i++)
-            {
-                var info = Marshal.PtrToStructure<WTS_SESSION_INFO>(sessionsPtr + i * size);
-                if (info.State == WTS_CONNECTSTATE_CLASS.WTSActive)
-                {
-                    return info.SessionId;
-                }
-            }
-            return null;
-        }
-        finally
-        {
-            WTSFreeMemory(sessionsPtr);
-        }
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct WTS_SESSION_INFO
-    {
-        public int SessionId;
-        [MarshalAs(UnmanagedType.LPStr)] public string WinStationName;
-        public WTS_CONNECTSTATE_CLASS State;
-    }
-
-    private enum WTS_CONNECTSTATE_CLASS
-    {
-        WTSActive,
-        WTSConnected,
-        WTSConnectQuery,
-        WTSShadow,
-        WTSDisconnected,
-        WTSIdle,
-        WTSListen,
-        WTSReset,
-        WTSDown,
-        WTSInit,
-    }
-
     [DllImport("wtsapi32.dll", SetLastError = true)]
     private static extern bool WTSDisconnectSession(IntPtr hServer, int sessionId, [MarshalAs(UnmanagedType.Bool)] bool bWait);
-
-    [DllImport("wtsapi32.dll")]
-    private static extern bool WTSEnumerateSessions(IntPtr hServer, int reserved, int version, out IntPtr sessionInfo, out int count);
-
-    [DllImport("wtsapi32.dll")]
-    private static extern void WTSFreeMemory(IntPtr memory);
 }

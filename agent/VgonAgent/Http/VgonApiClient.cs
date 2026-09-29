@@ -97,6 +97,43 @@ public sealed class VgonApiClient : IVgonApiClient
         return await response.Content.ReadFromJsonAsync<LatestReleaseInfo>(cancellationToken: ct);
     }
 
+    public async Task UploadScreenshotAsync(string accessToken, byte[] jpegBytes, DateTimeOffset capturedAt, int? width, int? height, CancellationToken ct)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, "agents/screenshots")
+        {
+            Content = new ByteArrayContent(jpegBytes),
+        };
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        message.Content.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        message.Headers.Add("X-Captured-At", capturedAt.ToString("O"));
+        if (width is not null) message.Headers.Add("X-Image-Width", width.Value.ToString());
+        if (height is not null) message.Headers.Add("X-Image-Height", height.Value.ToString());
+
+        var response = await _http.SendAsync(message, ct);
+        await EnsureSuccess(response, ct);
+    }
+
+    public async Task<bool> UploadScreenFrameAsync(string accessToken, string sessionId, byte[] jpegBytes, CancellationToken ct)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, $"agents/screen-sessions/{sessionId}/frame")
+        {
+            Content = new ByteArrayContent(jpegBytes),
+        };
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        message.Content.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+
+        var response = await _http.SendAsync(message, ct);
+        await EnsureSuccess(response, ct);
+        var ack = await response.Content.ReadFromJsonAsync<ScreenFrameAck>(cancellationToken: ct);
+        return ack?.Continue ?? false;
+    }
+
+    private sealed class ScreenFrameAck
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("continue")]
+        public bool Continue { get; init; }
+    }
+
     private static async Task EnsureSuccess(HttpResponseMessage response, CancellationToken ct)
     {
         if (response.IsSuccessStatusCode) return;

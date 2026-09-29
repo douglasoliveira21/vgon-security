@@ -6,6 +6,7 @@ import { useI18n } from '@/lib/i18n';
 import { TranslationKey } from '@/lib/locales/en';
 import { Icon } from '@/lib/icons';
 import { EmptyRow, ErrorBanner, LoadingRow, PageHeader, StatCard, StatusBadge, SuccessBanner } from '@/lib/ui';
+import { LiveScreenViewer } from '@/lib/LiveScreenViewer';
 
 interface Device {
   id: string;
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   const [selectedAction, setSelectedAction] = useState<Record<string, string>>({});
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [viewingScreen, setViewingScreen] = useState<{ id: string; name: string } | null>(null);
 
   async function loadDevices() {
     try {
@@ -177,6 +179,13 @@ export default function DashboardPage() {
                     <button onClick={() => runAction(d.id)} disabled={runningAction === d.id} className="btn-secondary btn-sm">
                       {runningAction === d.id ? t('devices.queuing') : t('devices.run')}
                     </button>
+                    <button
+                      onClick={() => setViewingScreen({ id: d.id, name: d.hostname ?? d.id.slice(0, 8) })}
+                      className="btn-secondary btn-sm"
+                      title={t('devices.viewScreen')}
+                    >
+                      <Icon name="eye" className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -184,6 +193,10 @@ export default function DashboardPage() {
           </tbody>
         </table>
       </div>
+
+      {viewingScreen && (
+        <LiveScreenViewer deviceId={viewingScreen.id} deviceName={viewingScreen.name} onClose={() => setViewingScreen(null)} />
+      )}
     </div>
   );
 }

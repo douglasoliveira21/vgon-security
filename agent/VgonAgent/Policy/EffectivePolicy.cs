@@ -122,4 +122,7 @@ public sealed class CollectionPolicySettings
 
     [JsonPropertyName("securityCollectorEnabled")]
     public bool? SecurityCollectorEnabled { get; init; }
+
+    [JsonPropertyName("screenshotCollectorEnabled")]
+    public bool? ScreenshotCollectorEnabled { get; init; }
 }

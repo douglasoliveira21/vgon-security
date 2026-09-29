@@ -14,4 +14,13 @@ public interface IVgonApiClient
     Task<IReadOnlyList<PendingRemoteAction>> GetPendingActionsAsync(string accessToken, CancellationToken ct);
     Task CompleteActionAsync(string accessToken, string actionId, CompleteRemoteActionRequest request, CancellationToken ct);
     Task<LatestReleaseInfo?> GetLatestReleaseAsync(string accessToken, string channel, CancellationToken ct);
+
+    /// <summary>Uploads one screenshot for the periodic (silent) ScreenshotCollector. Fire-and-forget
+    /// from the Cloud's point of view — no response body beyond a 2xx/error status.</summary>
+    Task UploadScreenshotAsync(string accessToken, byte[] jpegBytes, DateTimeOffset capturedAt, int? width, int? height, CancellationToken ct);
+
+    /// <summary>Uploads one live-view frame and returns whether the Agent should keep streaming —
+    /// this is how the Cloud tells the Agent to stop (dashboard clicked "stop", or the session's
+    /// max duration elapsed server-side too), without a separate polled remote action.</summary>
+    Task<bool> UploadScreenFrameAsync(string accessToken, string sessionId, byte[] jpegBytes, CancellationToken ct);
 }

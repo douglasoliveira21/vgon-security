@@ -121,9 +121,27 @@ public sealed class AgentOptions
 
     public int SecurityCollectorIntervalSeconds { get; set; } = 30 * 60; // 30 minutes
 
+    // ---- Screenshot Collector: silent, periodic, low-frequency captures ----
+    // Distinct from live screen view below — no on-screen notice, matching the same silent
+    // pattern already used for every other collector (process/file/browser/...).
+
+    public bool ScreenshotCollectorEnabled { get; set; } = true;
+
+    public int ScreenshotIntervalSeconds { get; set; } = 60;
+
     // ---- RMM: remote actions (section 26/Phase 7) ----
 
     public int RemoteActionPollIntervalSeconds { get; set; } = 30;
+
+    // ---- RMM: live screen view (view-only — this Agent never reads or injects mouse/keyboard
+    // input; a visible on-screen banner is shown on the target machine for the whole session) ----
+
+    public int ScreenViewFrameIntervalMs { get; set; } = 2000;
+
+    /// <summary>Hard ceiling enforced independently by the Agent even if the Cloud never says to
+    /// stop (e.g. a lost frame-upload response) — see also ScreenSessionsService's own copy of
+    /// this same limit server-side.</summary>
+    public int ScreenViewMaxDurationSeconds { get; set; } = 15 * 60;
 
     // ---- Agent auto-update (section 24) ----
 

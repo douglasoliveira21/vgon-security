@@ -1,7 +1,8 @@
 import { Body, Controller, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
-import { Permission, RemoteActionStatus } from '@vgon/shared';
+import { Permission, RemoteActionStatus, RemoteActionType } from '@vgon/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { ScreenSessionsService } from '../screen/screen-sessions.service';
 import { CreateRemoteActionDto } from './dto/create-remote-action.dto';
 import { CompleteRemoteActionDto } from './dto/complete-remote-action.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -16,6 +17,7 @@ export class RemoteActionsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly screenSessions: ScreenSessionsService,
   ) {}
 
   // --- Web-user (admin) endpoints ---
@@ -99,7 +101,7 @@ export class RemoteActionsController {
     });
     if (!existing) throw new NotFoundException('Action not found');
 
-    return this.prisma.remoteAction.update({
+    const updated = await this.prisma.remoteAction.update({
       where: { id },
       data: {
         status: dto.success ? RemoteActionStatus.COMPLETED : RemoteActionStatus.FAILED,
@@ -108,5 +110,13 @@ export class RemoteActionsController {
         errorMessage: dto.errorMessage,
       },
     });
+
+    if (existing.type === RemoteActionType.START_SCREEN_VIEW) {
+      // Lets any open dashboard stream close gracefully and frees the session's Redis keys
+      // instead of waiting out their TTL — see ScreenSessionsService.
+      await this.screenSessions.onSessionEnded(id);
+    }
+
+    return updated;
   }
 }

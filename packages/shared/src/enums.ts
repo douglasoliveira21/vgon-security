@@ -20,6 +20,10 @@ export enum Permission {
   REPORTS_READ = 'reports.read',
   AGENTS_MANAGE = 'agents.manage',
   AUDIT_READ = 'audit.read',
+  // Periodic screenshots and live (view-only) screen sessions — kept separate from
+  // DEVICES_MANAGE since it's meaningfully more sensitive than other device management actions
+  // and an org may want to grant it to a narrower set of roles.
+  SCREEN_VIEW = 'screen.view',
 }
 
 // Default role -> permission mapping. Kept in code (not DB) for Phase 1;
@@ -36,6 +40,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.POLICIES_MANAGE,
     Permission.REPORTS_READ,
     Permission.AUDIT_READ,
+    Permission.SCREEN_VIEW,
   ],
   [Role.IT_ADMIN]: [
     Permission.DEVICES_READ,
@@ -44,6 +49,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.EVENTS_READ,
     Permission.POLICIES_READ,
     Permission.REPORTS_READ,
+    Permission.SCREEN_VIEW,
   ],
   [Role.ANALYST]: [
     Permission.DEVICES_READ,
@@ -135,6 +141,11 @@ export enum RemoteActionType {
   COLLECT_INVENTORY = 'COLLECT_INVENTORY',
   RESTART_AGENT = 'RESTART_AGENT',
   LOCK_SESSION = 'LOCK_SESSION',
+  // View-only live screen session (section "RMM extensions"): the Agent streams JPEG frames of
+  // the active desktop while a visible on-screen banner is shown for the duration. No input
+  // (mouse/keyboard) channel exists anywhere in this pipeline — the Agent never receives or
+  // could receive input events for this action, only ever sends frames out.
+  START_SCREEN_VIEW = 'START_SCREEN_VIEW',
 }
 
 export enum RemoteActionStatus {

@@ -8,6 +8,11 @@
     <AssemblyName>VgonAgent</AssemblyName>
     <RootNamespace>VgonAgent</RootNamespace>
     <UserSecretsId>dotnet-VgonAgent-17f7e1d4-065a-4fb2-8589-2cde6d982e3c</UserSecretsId>
+    <!-- Only used by the short-lived "helper mode" invocations (Screen/ScreenCaptureHelper.cs),
+         which the main service launches inside the interactive user's session to grab the screen
+         (System.Drawing) and show the live-view banner (a plain Form) — the service process
+         itself (Session 0) never touches either. -->
+    <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
   <ItemGroup>

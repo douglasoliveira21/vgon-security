@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using VgonAgent.Configuration;
 using VgonAgent.Policy;
 using VgonAgent.Rmm;
+using VgonAgent.Screen;
 
 namespace VgonAgent.Tests;
 
@@ -21,6 +22,19 @@ public sealed class FakeSystemActions : ISystemActions
     public void ExitForRestart() => ExitCalls++;
 }
 
+public sealed class FakeScreenViewSessionRunner : IScreenViewSessionRunner
+{
+    public List<string> StartedActionIds { get; } = [];
+    public bool NextTryStartResult { get; set; } = true;
+
+    public bool TryStart(string actionId)
+    {
+        if (!NextTryStartResult) return false;
+        StartedActionIds.Add(actionId);
+        return true;
+    }
+}
+
 public sealed class RemoteActionExecutorTests : IDisposable
 {
     private readonly string _tempDir;
@@ -35,20 +49,21 @@ public sealed class RemoteActionExecutorTests : IDisposable
         try { Directory.Delete(_tempDir, recursive: true); } catch { /* best-effort cleanup */ }
     }
 
-    private (RemoteActionExecutor Executor, FakeSystemActions SystemActions, CollectionTrigger Trigger, PolicyStore PolicyStore, FakeVgonApiClient Api)
+    private (RemoteActionExecutor Executor, FakeSystemActions SystemActions, CollectionTrigger Trigger, PolicyStore PolicyStore, FakeVgonApiClient Api, FakeScreenViewSessionRunner ScreenViewRunner)
         MakeExecutor()
     {
         var policyStore = new PolicyStore(Options.Create(new AgentOptions { DataDirectory = _tempDir }), NullLogger<PolicyStore>.Instance);
         var trigger = new CollectionTrigger();
         var systemActions = new FakeSystemActions();
         var api = new FakeVgonApiClient();
+        var screenViewRunner = new FakeScreenViewSessionRunner();
         var credentialStore = new FakeCredentialStore();
         credentialStore.Save(new VgonAgent.Identity.DeviceCredentials("device-1", "refresh-token"));
         var tokenProvider = new VgonAgent.Identity.AccessTokenProvider(
             api, credentialStore, Options.Create(new AgentOptions()), NullLogger<VgonAgent.Identity.AccessTokenProvider>.Instance);
 
-        var executor = new RemoteActionExecutor(policyStore, trigger, systemActions, api, tokenProvider, NullLogger<RemoteActionExecutor>.Instance);
-        return (executor, systemActions, trigger, policyStore, api);
+        var executor = new RemoteActionExecutor(policyStore, trigger, systemActions, api, tokenProvider, screenViewRunner, NullLogger<RemoteActionExecutor>.Instance);
+        return (executor, systemActions, trigger, policyStore, api, screenViewRunner);
     }
 
     private static PendingRemoteAction Action(string type) => new() { Id = "action-1", Type = type, RequestedAt = DateTimeOffset.UtcNow.ToString("O") };
@@ -56,7 +71,7 @@ public sealed class RemoteActionExecutorTests : IDisposable
     [Fact]
     public async Task REFRESH_POLICY_fetches_and_applies_the_latest_policy()
     {
-        var (executor, _, _, policyStore, _) = MakeExecutor();
+        var (executor, _, _, policyStore, _, _) = MakeExecutor();
 
         var result = await executor.ExecuteAsync(Action(RemoteActionType.RefreshPolicy), CancellationToken.None);
 
@@ -69,7 +84,7 @@ public sealed class RemoteActionExecutorTests : IDisposable
     [Fact]
     public async Task COLLECT_INVENTORY_wakes_all_three_inventory_collectors()
     {
-        var (executor, _, trigger, _, _) = MakeExecutor();
+        var (executor, _, trigger, _, _, _) = MakeExecutor();
 
         var result = await executor.ExecuteAsync(Action(RemoteActionType.CollectInventory), CancellationToken.None);
 
@@ -86,7 +101,7 @@ public sealed class RemoteActionExecutorTests : IDisposable
     [Fact]
     public async Task LOCK_SESSION_calls_into_system_actions_and_reports_success_when_it_worked()
     {
-        var (executor, systemActions, _, _, _) = MakeExecutor();
+        var (executor, systemActions, _, _, _, _) = MakeExecutor();
         systemActions.LockResult = true;
 
         var result = await executor.ExecuteAsync(Action(RemoteActionType.LockSession), CancellationToken.None);
@@ -98,7 +113,7 @@ public sealed class RemoteActionExecutorTests : IDisposable
     [Fact]
     public async Task LOCK_SESSION_reports_failure_when_no_active_session_was_found()
     {
-        var (executor, systemActions, _, _, _) = MakeExecutor();
+        var (executor, systemActions, _, _, _, _) = MakeExecutor();
         systemActions.LockResult = false;
 
         var result = await executor.ExecuteAsync(Action(RemoteActionType.LockSession), CancellationToken.None);
@@ -110,7 +125,7 @@ public sealed class RemoteActionExecutorTests : IDisposable
     [Fact]
     public async Task RESTART_AGENT_reports_success_without_exiting_the_process_itself()
     {
-        var (executor, systemActions, _, _, _) = MakeExecutor();
+        var (executor, systemActions, _, _, _, _) = MakeExecutor();
 
         var result = await executor.ExecuteAsync(Action(RemoteActionType.RestartAgent), CancellationToken.None);
 
@@ -121,9 +136,36 @@ public sealed class RemoteActionExecutorTests : IDisposable
     }
 
     [Fact]
+    public async Task START_SCREEN_VIEW_starts_the_session_runner_and_defers_completion()
+    {
+        var (executor, _, _, _, _, screenViewRunner) = MakeExecutor();
+
+        var result = await executor.ExecuteAsync(Action(RemoteActionType.StartScreenView), CancellationToken.None);
+
+        Assert.True(result.Success);
+        // The runner (not the executor's caller) reports completion once the session actually
+        // ends, minutes from now — the polling loop must not call the completion endpoint itself.
+        Assert.True(result.Deferred);
+        Assert.Equal(["action-1"], screenViewRunner.StartedActionIds);
+    }
+
+    [Fact]
+    public async Task START_SCREEN_VIEW_fails_immediately_when_a_session_is_already_active()
+    {
+        var (executor, _, _, _, _, screenViewRunner) = MakeExecutor();
+        screenViewRunner.NextTryStartResult = false;
+
+        var result = await executor.ExecuteAsync(Action(RemoteActionType.StartScreenView), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.False(result.Deferred);
+        Assert.Contains("already active", result.ErrorMessage);
+    }
+
+    [Fact]
     public async Task An_unknown_action_type_fails_cleanly_instead_of_throwing()
     {
-        var (executor, _, _, _, _) = MakeExecutor();
+        var (executor, _, _, _, _, _) = MakeExecutor();
 
         var result = await executor.ExecuteAsync(Action("SOMETHING_MADE_UP"), CancellationToken.None);
 

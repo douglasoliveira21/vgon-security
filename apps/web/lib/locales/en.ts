@@ -16,6 +16,7 @@ export const en = {
   'nav.files': 'Files',
   'nav.usb': 'USB',
   'nav.printers': 'Printers',
+  'nav.screenshots': 'Screenshots',
   'nav.hardware': 'Hardware',
   'nav.software': 'Software',
   'nav.security': 'Security Center',
@@ -44,6 +45,7 @@ export const en = {
   'common.version': 'Version',
   'common.updated': 'Updated',
   'common.details': 'Details',
+  'common.close': 'Close',
   'common.remove': 'Remove',
   'common.save': 'Save',
   'common.saving': 'Saving...',
@@ -106,6 +108,26 @@ export const en = {
   'devices.queued': '"{action}" queued — the Agent runs it on its next check (up to 30 s).',
   'devices.error.action': 'Could not queue the action.',
   'devices.error.token': 'Could not create the install token.',
+  'devices.viewScreen': 'View screen',
+  'devices.error.screenView': 'Could not start the screen view session.',
+
+  // Live screen view (view-only — no mouse/keyboard input is ever sent to the device)
+  'liveScreen.title': 'Screen — {device}',
+  'liveScreen.starting': 'Requesting a screen view session...',
+  'liveScreen.waiting': 'Waiting for the Agent to connect (up to ~30s)...',
+  'liveScreen.error': 'Could not start the screen view session.',
+  'liveScreen.ended': 'Session ended.',
+  'liveScreen.stop': 'Stop viewing',
+  'liveScreen.notice':
+    'View-only — no mouse or keyboard input is sent to this device. A notice is shown on its screen for the whole session.',
+
+  // Screenshots
+  'screenshots.title': 'Screenshots',
+  'screenshots.subtitle': 'Periodic, silent captures from every enrolled device — no on-screen notice is shown for these (see Live screen view for on-demand, banner-shown sessions).',
+  'screenshots.noneYet': 'No screenshot captured yet for this device.',
+  'screenshots.viewHistory': 'View history',
+  'screenshots.history': 'History — {device}',
+  'screenshots.empty': 'No devices with a screenshot yet.',
 
   // Events
   'events.title': 'Event timeline',

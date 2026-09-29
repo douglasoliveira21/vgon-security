@@ -67,6 +67,9 @@ export interface CollectionPolicySettings {
   hardwareCollectorEnabled?: boolean;
   softwareCollectorEnabled?: boolean;
   securityCollectorEnabled?: boolean;
+  // Periodic, silent screenshot capture (distinct from the on-demand, banner-shown live screen
+  // view, which is gated by the screen.view permission rather than a policy toggle).
+  screenshotCollectorEnabled?: boolean;
 }
 
 // What GET /agents/policy returns: the fully-resolved policy for one specific device.

@@ -49,4 +49,5 @@ export const DEFAULT_COLLECTION_POLICY: Required<CollectionPolicySettings> = {
   hardwareCollectorEnabled: true,
   softwareCollectorEnabled: true,
   securityCollectorEnabled: true,
+  screenshotCollectorEnabled: true,
 };

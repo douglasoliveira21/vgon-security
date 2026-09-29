@@ -2,10 +2,17 @@ using Microsoft.Extensions.Logging;
 using VgonAgent.Http;
 using VgonAgent.Identity;
 using VgonAgent.Policy;
+using VgonAgent.Screen;
 
 namespace VgonAgent.Rmm;
 
-public sealed record RemoteActionResult(bool Success, object? Result, string? ErrorMessage);
+/// <summary>
+/// <paramref name="Deferred"/>: true means "don't call the completion endpoint for this action —
+/// something else (a background session runner) owns reporting its outcome later." Used only by
+/// START_SCREEN_VIEW, whose session can run for minutes, far past the normal
+/// dispatch-and-complete-immediately shape every other action type follows.
+/// </summary>
+public sealed record RemoteActionResult(bool Success, object? Result, string? ErrorMessage, bool Deferred = false);
 
 /// <summary>
 /// Dispatches one pending remote action (section 26/Phase 7) to its effect. Kept separate from
@@ -19,6 +26,7 @@ public sealed class RemoteActionExecutor
     private readonly ISystemActions _systemActions;
     private readonly IVgonApiClient _api;
     private readonly IAccessTokenProvider _tokenProvider;
+    private readonly IScreenViewSessionRunner _screenViewRunner;
     private readonly ILogger<RemoteActionExecutor> _logger;
 
     public RemoteActionExecutor(
@@ -27,6 +35,7 @@ public sealed class RemoteActionExecutor
         ISystemActions systemActions,
         IVgonApiClient api,
         IAccessTokenProvider tokenProvider,
+        IScreenViewSessionRunner screenViewRunner,
         ILogger<RemoteActionExecutor> logger)
     {
         _policyStore = policyStore;
@@ -34,6 +43,7 @@ public sealed class RemoteActionExecutor
         _systemActions = systemActions;
         _api = api;
         _tokenProvider = tokenProvider;
+        _screenViewRunner = screenViewRunner;
         _logger = logger;
     }
 
@@ -65,6 +75,14 @@ public sealed class RemoteActionExecutor
                     // Reported as completed BEFORE exiting — the process is about to disappear
                     // and won't get another chance to call the completion endpoint.
                     return new RemoteActionResult(true, null, null);
+
+                case RemoteActionType.StartScreenView:
+                    var started = _screenViewRunner.TryStart(action.Id);
+                    return started
+                        // The runner reports completion itself once the session actually ends
+                        // (minutes from now) — the polling loop must not complete it right away.
+                        ? new RemoteActionResult(true, null, null, Deferred: true)
+                        : new RemoteActionResult(false, null, "A screen view session is already active on this device");
 
                 default:
                     return new RemoteActionResult(false, null, $"Unknown action type: {action.Type}");

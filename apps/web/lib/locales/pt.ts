@@ -17,6 +17,7 @@ export const pt: Record<TranslationKey, string> = {
   'nav.files': 'Arquivos',
   'nav.usb': 'USB',
   'nav.printers': 'Impressoras',
+  'nav.screenshots': 'Capturas de tela',
   'nav.hardware': 'Hardware',
   'nav.software': 'Softwares',
   'nav.security': 'Central de segurança',
@@ -45,6 +46,7 @@ export const pt: Record<TranslationKey, string> = {
   'common.version': 'Versão',
   'common.updated': 'Atualizado',
   'common.details': 'Detalhes',
+  'common.close': 'Fechar',
   'common.remove': 'Remover',
   'common.save': 'Salvar',
   'common.saving': 'Salvando...',
@@ -107,6 +109,26 @@ export const pt: Record<TranslationKey, string> = {
   'devices.queued': '"{action}" na fila — o Agente executa na próxima verificação (até 30 s).',
   'devices.error.action': 'Não foi possível enviar a ação.',
   'devices.error.token': 'Não foi possível gerar o token de instalação.',
+  'devices.viewScreen': 'Ver tela',
+  'devices.error.screenView': 'Não foi possível iniciar a visualização de tela.',
+
+  // Visualização de tela ao vivo (somente visualização — nenhuma entrada de mouse/teclado é enviada)
+  'liveScreen.title': 'Tela — {device}',
+  'liveScreen.starting': 'Solicitando sessão de visualização...',
+  'liveScreen.waiting': 'Aguardando o Agente conectar (até ~30s)...',
+  'liveScreen.error': 'Não foi possível iniciar a visualização de tela.',
+  'liveScreen.ended': 'Sessão encerrada.',
+  'liveScreen.stop': 'Encerrar visualização',
+  'liveScreen.notice':
+    'Somente visualização — nenhuma entrada de mouse ou teclado é enviada a este dispositivo. Um aviso é exibido na tela dele durante toda a sessão.',
+
+  // Capturas de tela
+  'screenshots.title': 'Capturas de tela',
+  'screenshots.subtitle': 'Capturas periódicas e silenciosas de cada dispositivo cadastrado — nenhum aviso é exibido na tela para estas (veja Visualização ao vivo para sessões sob demanda, com aviso).',
+  'screenshots.noneYet': 'Nenhuma captura registrada ainda para este dispositivo.',
+  'screenshots.viewHistory': 'Ver histórico',
+  'screenshots.history': 'Histórico — {device}',
+  'screenshots.empty': 'Nenhum dispositivo com captura ainda.',
 
   // Events
   'events.title': 'Linha do tempo de eventos',
