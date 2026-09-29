@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { TranslationKey } from '@/lib/locales/en';
 import { useDevices } from '@/lib/useDevices';
+import { useClientFilter } from '@/lib/ClientFilter';
 import { EmptyRow, ErrorBanner, LoadingRow, PageHeader, SeverityBadge, Timestamp } from '@/lib/ui';
 
 interface Finding {
@@ -32,6 +33,7 @@ const SEVERITY_CARD: Record<string, string> = {
 export default function SecurityCenterPage() {
   const { t } = useI18n();
   const { nameOf } = useDevices();
+  const { clientId } = useClientFilter();
   const [findings, setFindings] = useState<Finding[]>([]);
   const [statusFilter, setStatusFilter] = useState<'OPEN' | 'RESOLVED'>('OPEN');
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,9 @@ export default function SecurityCenterPage() {
 
   async function load() {
     try {
-      setFindings(await apiFetch<Finding[]>(`/security/findings?status=${statusFilter}`));
+      const params = new URLSearchParams({ status: statusFilter });
+      if (clientId) params.set('clientId', clientId);
+      setFindings(await apiFetch<Finding[]>(`/security/findings?${params}`));
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
@@ -55,7 +59,7 @@ export default function SecurityCenterPage() {
     const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, clientId]);
 
   async function resolve(id: string) {
     setResolving(id);

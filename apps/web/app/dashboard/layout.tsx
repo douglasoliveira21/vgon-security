@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n';
 import { TranslationKey } from '@/lib/locales/en';
 import { LanguageSwitch } from '@/lib/LanguageSwitch';
 import { Icon, IconName } from '@/lib/icons';
+import { ClientFilterProvider, ClientFilterSelect } from '@/lib/ClientFilter';
 
 interface NavItem {
   href: string;
@@ -51,6 +52,7 @@ const NAV: Array<{ group: TranslationKey; items: NavItem[] }> = [
   {
     group: 'nav.group.admin',
     items: [
+      { href: '/dashboard/clients', label: 'nav.clients', icon: 'briefcase' },
       { href: '/dashboard/organization', label: 'nav.organization', icon: 'mapPin' },
       { href: '/dashboard/users', label: 'nav.users', icon: 'users' },
       { href: '/dashboard/releases', label: 'nav.releases', icon: 'download' },
@@ -148,6 +150,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   );
 
   return (
+    <ClientFilterProvider>
     <div className="min-h-screen">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">{sidebar}</aside>
@@ -181,10 +184,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
             <span className="text-sm font-medium text-slate-700">{current ? t(current.label) : ''}</span>
           </div>
-          <LanguageSwitch />
+          <div className="flex items-center gap-3">
+            <ClientFilterSelect />
+            <LanguageSwitch />
+          </div>
         </header>
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       </div>
     </div>
+    </ClientFilterProvider>
   );
 }

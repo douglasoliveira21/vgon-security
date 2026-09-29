@@ -7,6 +7,7 @@ import { TranslationKey } from '@/lib/locales/en';
 import { Icon } from '@/lib/icons';
 import { EmptyRow, ErrorBanner, LoadingRow, PageHeader, StatCard, StatusBadge, SuccessBanner } from '@/lib/ui';
 import { LiveScreenViewer } from '@/lib/LiveScreenViewer';
+import { useClientFilter } from '@/lib/ClientFilter';
 
 interface Device {
   id: string;
@@ -15,6 +16,8 @@ interface Device {
   os: string | null;
   agentVersion: string | null;
   lastSeenAt: string | null;
+  clientId: string | null;
+  client: { id: string; name: string } | null;
 }
 
 interface ProvisioningTokenResponse {
@@ -26,6 +29,7 @@ const ACTION_TYPES = ['REFRESH_POLICY', 'COLLECT_INVENTORY', 'CAPTURE_SCREENSHOT
 
 export default function DashboardPage() {
   const { t, formatDateTime, relativeTime } = useI18n();
+  const { clientId: clientFilter, clients } = useClientFilter();
   const [devices, setDevices] = useState<Device[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,8 +42,9 @@ export default function DashboardPage() {
 
   async function loadDevices() {
     try {
-      const data = await apiFetch<Device[]>('/devices');
-      setDevices(data);
+      const params = new URLSearchParams();
+      if (clientFilter) params.set('clientId', clientFilter);
+      setDevices(await apiFetch<Device[]>(`/devices?${params}`));
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
@@ -53,7 +58,19 @@ export default function DashboardPage() {
     const interval = setInterval(loadDevices, 15_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clientFilter]);
+
+  async function assignClient(deviceId: string, newClientId: string) {
+    setError(null);
+    try {
+      await apiFetch(`/devices/${deviceId}`, { method: 'PATCH', body: JSON.stringify({ clientId: newClientId }) });
+      await loadDevices();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
+    }
+  }
+
+  const visibleDevices = devices;
 
   async function runAction(deviceId: string) {
     const type = selectedAction[deviceId] ?? ACTION_TYPES[0];
@@ -93,8 +110,8 @@ export default function DashboardPage() {
     }
   }
 
-  const online = devices.filter((d) => d.status === 'ONLINE').length;
-  const attention = devices.filter((d) => ['STALE', 'OFFLINE', 'BLOCKED'].includes(d.status)).length;
+  const online = visibleDevices.filter((d) => d.status === 'ONLINE').length;
+  const attention = visibleDevices.filter((d) => ['STALE', 'OFFLINE', 'BLOCKED'].includes(d.status)).length;
 
   return (
     <div>
@@ -110,7 +127,7 @@ export default function DashboardPage() {
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <StatCard label={t('devices.total')} value={devices.length} icon="devices" />
+        <StatCard label={t('devices.total')} value={visibleDevices.length} icon="devices" />
         <StatCard label={t('devices.online')} value={online} icon="activity" tone="green" />
         <StatCard label={t('devices.attention')} value={attention} icon="alert" tone={attention ? 'amber' : 'slate'} />
       </div>
@@ -141,6 +158,7 @@ export default function DashboardPage() {
             <tr>
               <th>{t('devices.col.hostname')}</th>
               <th>{t('common.status')}</th>
+              <th>{t('clients.title')}</th>
               <th>{t('devices.col.os')}</th>
               <th>{t('devices.col.agent')}</th>
               <th>{t('devices.col.lastSeen')}</th>
@@ -148,14 +166,28 @@ export default function DashboardPage() {
             </tr>
           </thead>
           <tbody>
-            {loading && <LoadingRow colSpan={6} />}
-            {!loading && devices.length === 0 && (
-              <EmptyRow colSpan={6} icon="devices">{t('devices.empty')}</EmptyRow>
+            {loading && <LoadingRow colSpan={7} />}
+            {!loading && visibleDevices.length === 0 && (
+              <EmptyRow colSpan={7} icon="devices">{t('devices.empty')}</EmptyRow>
             )}
-            {devices.map((d) => (
+            {visibleDevices.map((d) => (
               <tr key={d.id} className="hover:bg-slate-50">
                 <td className="font-medium text-slate-900">{d.hostname ?? '—'}</td>
                 <td><StatusBadge status={d.status} /></td>
+                <td>
+                  <select
+                    value={d.clientId ?? ''}
+                    onChange={(e) => assignClient(d.id, e.target.value)}
+                    className="input w-auto py-1.5 text-xs"
+                  >
+                    <option value="">{t('org.selectClient')}</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
                 <td className="text-slate-600">{d.os ?? '—'}</td>
                 <td className="font-mono text-xs text-slate-600">{d.agentVersion ?? '—'}</td>
                 <td>

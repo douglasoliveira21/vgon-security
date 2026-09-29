@@ -15,7 +15,7 @@ export class UsersController {
   @Get()
   @RequirePermissions(Permission.USERS_MANAGE)
   list(@CurrentUser() user: AuthenticatedUser) {
-    return this.usersService.list(user.tenantId);
+    return this.usersService.list(user);
   }
 
   @Post()

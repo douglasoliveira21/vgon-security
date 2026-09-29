@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useDevices } from '@/lib/useDevices';
+import { useClientFilter } from '@/lib/ClientFilter';
 import { EmptyRow, ErrorBanner, LoadingRow, PageHeader, Timestamp } from '@/lib/ui';
 
 interface PrinterEventRow {
@@ -21,13 +22,15 @@ interface PrinterEventRow {
 export default function PrintersPage() {
   const { t } = useI18n();
   const { nameOf } = useDevices();
+  const { clientId } = useClientFilter();
   const [events, setEvents] = useState<PrinterEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     try {
-      setEvents(await apiFetch<PrinterEventRow[]>('/events?eventType=printer.job&take=100'));
+      const clientParam = clientId ? `&clientId=${clientId}` : '';
+      setEvents(await apiFetch<PrinterEventRow[]>(`/events?eventType=printer.job&take=100${clientParam}`));
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
@@ -41,7 +44,7 @@ export default function PrintersPage() {
     const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clientId]);
 
   return (
     <div>

@@ -8,6 +8,8 @@ import { AuthenticatedDevice } from '../common/decorators/current-device.decorat
 import { EventEnvelopeDto } from './dto/ingest-events.dto';
 import { QueryEventsDto } from './dto/query-events.dto';
 import { MetricsService } from '../observability/metrics.service';
+import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { deviceClientScopeWhere } from '../common/client-scope.util';
 
 export const EVENTS_QUEUE = 'events';
 
@@ -78,16 +80,17 @@ export class EventsService {
     }
   }
 
-  async timeline(tenantId: string, query: QueryEventsDto) {
+  async timeline(actor: AuthenticatedUser, query: QueryEventsDto) {
     return this.prisma.event.findMany({
       where: {
-        tenantId, // always from the authenticated user, never from the query string
+        tenantId: actor.tenantId, // always from the authenticated user, never from the query string
         deviceId: query.deviceId,
         eventType: query.eventType,
         occurredAt: {
           gte: query.from ? new Date(query.from) : undefined,
           lte: query.to ? new Date(query.to) : undefined,
         },
+        ...deviceClientScopeWhere(actor, query.clientId),
       },
       orderBy: { occurredAt: 'desc' },
       take: query.take ?? 100,

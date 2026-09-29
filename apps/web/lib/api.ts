@@ -5,6 +5,8 @@ export interface SessionUser {
   tenantId: string;
   email: string;
   role: string;
+  // null = sees every client under the tenant; set = restricted to only that client's data.
+  clientId?: string | null;
 }
 
 export function getToken(): string | null {

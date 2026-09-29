@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useDevices } from '@/lib/useDevices';
+import { useClientFilter } from '@/lib/ClientFilter';
 import { Icon } from '@/lib/icons';
 import { Badge, EmptyRow, ErrorBanner, LoadingRow, PageHeader, Timestamp, Tone } from '@/lib/ui';
 
@@ -31,6 +32,7 @@ const isLink = (url?: string) => !!url && /^https?:\/\//i.test(url);
 export default function BrowsingPage() {
   const { t } = useI18n();
   const { devices, nameOf } = useDevices();
+  const { clientId } = useClientFilter();
   const [events, setEvents] = useState<BrowsingEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,7 @@ export default function BrowsingPage() {
     try {
       const params = new URLSearchParams({ eventType: 'browser.navigation', take: '500' });
       if (deviceId) params.set('deviceId', deviceId);
+      if (clientId) params.set('clientId', clientId);
       setEvents(await apiFetch<BrowsingEventRow[]>(`/events?${params}`));
       setError(null);
     } catch (err) {
@@ -55,7 +58,7 @@ export default function BrowsingPage() {
     const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceId]);
+  }, [deviceId, clientId]);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();

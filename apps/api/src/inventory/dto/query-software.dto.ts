@@ -8,6 +8,10 @@ export class QuerySoftwareDto {
 
   @IsOptional()
   @IsString()
+  clientId?: string;
+
+  @IsOptional()
+  @IsString()
   name?: string;
 
   @IsOptional()

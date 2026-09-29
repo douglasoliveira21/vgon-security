@@ -15,7 +15,7 @@ export class SitesController {
   @Get()
   @RequirePermissions(Permission.DEVICES_READ)
   list(@CurrentUser() user: AuthenticatedUser) {
-    return this.sitesService.list(user.tenantId);
+    return this.sitesService.list(user);
   }
 
   @Post()

@@ -31,10 +31,15 @@ export class AgentsService {
     const plaintext = generateOpaqueToken();
     const expiresAt = new Date(Date.now() + (dto.expiresInMinutes ?? DEFAULT_PROVISIONING_MINUTES) * 60_000);
 
+    // A client-scoped actor can only issue tokens for their own client; a full-access actor may
+    // say which client the resulting device belongs to (or none).
+    const clientId = actor.clientId ?? dto.clientId;
+
     await this.prisma.provisioningToken.create({
       data: {
         tenantId: actor.tenantId,
         tokenHash: hashToken(plaintext),
+        clientId,
         siteId: dto.siteId,
         groupId: dto.groupId,
         createdById: actor.userId,
@@ -84,6 +89,7 @@ export class AgentsService {
       const created = await tx.device.create({
         data: {
           tenantId: token.tenantId,
+          clientId: token.clientId,
           siteId: token.siteId,
           groupId: token.groupId,
           hostname: dto.hostname,

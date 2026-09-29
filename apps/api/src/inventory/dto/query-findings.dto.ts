@@ -7,6 +7,10 @@ export class QueryFindingsDto {
   deviceId?: string;
 
   @IsOptional()
+  @IsString()
+  clientId?: string;
+
+  @IsOptional()
   @IsEnum(FindingStatus)
   status?: FindingStatus;
 

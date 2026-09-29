@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Permission } from '@vgon/shared';
 import { DevicesService } from './devices.service';
 import { UpdateDeviceDto } from './dto/update-device.dto';
@@ -14,14 +14,14 @@ export class DevicesController {
 
   @Get()
   @RequirePermissions(Permission.DEVICES_READ)
-  list(@CurrentUser() user: AuthenticatedUser) {
-    return this.devicesService.list(user.tenantId);
+  list(@CurrentUser() user: AuthenticatedUser, @Query('clientId') clientId?: string) {
+    return this.devicesService.list(user, clientId);
   }
 
   @Get(':id')
   @RequirePermissions(Permission.DEVICES_READ)
   get(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
-    return this.devicesService.get(user.tenantId, id);
+    return this.devicesService.get(user, id);
   }
 
   @Post(':id/revoke')

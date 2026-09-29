@@ -14,22 +14,22 @@ export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
 
   @Get('overview')
-  overview(@CurrentUser() user: AuthenticatedUser) {
-    return this.reports.overview(user.tenantId);
+  overview(@CurrentUser() user: AuthenticatedUser, @Query('clientId') clientId?: string) {
+    return this.reports.overview(user, clientId);
   }
 
   @Get('events-timeseries')
   eventsTimeseries(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryTimeseriesDto) {
-    return this.reports.eventsTimeseries(user.tenantId, query.days);
+    return this.reports.eventsTimeseries(user, query.days, query.clientId);
   }
 
   @Get('top-event-types')
   topEventTypes(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryTimeseriesDto) {
-    return this.reports.topEventTypes(user.tenantId, query.days);
+    return this.reports.topEventTypes(user, query.days, undefined, query.clientId);
   }
 
   @Get('top-domains')
   topDomains(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryTimeseriesDto) {
-    return this.reports.topDomains(user.tenantId, query.days);
+    return this.reports.topDomains(user, query.days, undefined, query.clientId);
   }
 }

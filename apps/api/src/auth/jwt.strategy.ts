@@ -20,8 +20,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  // Re-checks the user on every request instead of trusting stale JWT claims,
-  // so a deactivated user or changed role takes effect immediately (never trust the client/token alone).
+  // Re-checks the user on every request instead of trusting stale JWT claims, so a deactivated
+  // user, changed role, or changed client-visibility scope takes effect immediately (never trust
+  // the client/token alone) — clientId in particular is never read from the JWT payload.
   async validate(payload: WebJwtPayload) {
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user || !user.isActive || user.tenantId !== payload.tenantId) {
@@ -32,6 +33,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       tenantId: user.tenantId,
       email: user.email,
       role: user.role,
+      clientId: user.clientId,
     };
   }
 }

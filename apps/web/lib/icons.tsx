@@ -28,6 +28,7 @@ const PATHS: Record<string, string[]> = {
   compress: ['M9 3v4a2 2 0 0 1-2 2H3', 'M21 9h-4a2 2 0 0 1-2-2V3', 'M3 15h4a2 2 0 0 1 2 2v4', 'M15 21v-4a2 2 0 0 1 2-2h4'],
   users: ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M23 21v-2a4 4 0 0 0-3-3.87', 'M16 3.13a4 4 0 0 1 0 7.75'],
   mapPin: ['M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z', 'M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'],
+  briefcase: ['M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z', 'M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'],
 };
 
 export type IconName = keyof typeof PATHS;

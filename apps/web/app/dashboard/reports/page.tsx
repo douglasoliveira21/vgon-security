@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { TranslationKey } from '@/lib/locales/en';
+import { useClientFilter } from '@/lib/ClientFilter';
 import { ErrorBanner, PageHeader, StatCard } from '@/lib/ui';
 
 interface Overview {
@@ -55,6 +56,7 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 
 export default function ReportsPage() {
   const { t, tOr } = useI18n();
+  const { clientId } = useClientFilter();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [timeseries, setTimeseries] = useState<TimeseriesPoint[]>([]);
   const [topEventTypes, setTopEventTypes] = useState<CountRow[]>([]);
@@ -65,11 +67,12 @@ export default function ReportsPage() {
   useEffect(() => {
     async function load() {
       try {
+        const clientParam = clientId ? `&clientId=${clientId}` : '';
         const [o, ts, types, domains] = await Promise.all([
-          apiFetch<Overview>('/reports/overview'),
-          apiFetch<TimeseriesPoint[]>('/reports/events-timeseries?days=14'),
-          apiFetch<CountRow[]>('/reports/top-event-types?days=7'),
-          apiFetch<CountRow[]>('/reports/top-domains?days=7'),
+          apiFetch<Overview>(`/reports/overview?${clientId ? `clientId=${clientId}` : ''}`),
+          apiFetch<TimeseriesPoint[]>(`/reports/events-timeseries?days=14${clientParam}`),
+          apiFetch<CountRow[]>(`/reports/top-event-types?days=7${clientParam}`),
+          apiFetch<CountRow[]>(`/reports/top-domains?days=7${clientParam}`),
         ]);
         setOverview(o);
         setTimeseries(ts);
@@ -81,9 +84,10 @@ export default function ReportsPage() {
         setLoading(false);
       }
     }
+    setLoading(true);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clientId]);
 
   if (loading) return <p className="text-sm text-slate-400">{t('common.loading')}</p>;
   if (error) return <ErrorBanner message={error} />;

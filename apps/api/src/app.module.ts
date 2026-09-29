@@ -9,6 +9,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DevicesModule } from './devices/devices.module';
+import { ClientsModule } from './clients/clients.module';
 import { SitesModule } from './sites/sites.module';
 import { GroupsModule } from './groups/groups.module';
 import { AgentsModule } from './agents/agents.module';
@@ -41,6 +42,7 @@ import { RedisThrottlerStorage } from './config/redis-throttler-storage';
     AuthModule,
     UsersModule,
     DevicesModule,
+    ClientsModule,
     SitesModule,
     GroupsModule,
     AgentsModule,

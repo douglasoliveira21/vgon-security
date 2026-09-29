@@ -5,9 +5,16 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { EmptyRow, ErrorBanner, LoadingRow, PageHeader } from '@/lib/ui';
 
+interface Client {
+  id: string;
+  name: string;
+}
+
 interface Site {
   id: string;
   name: string;
+  clientId: string | null;
+  client: { id: string; name: string } | null;
   createdAt: string;
   _count: { devices: number; groups: number };
 }
@@ -15,6 +22,8 @@ interface Site {
 interface Group {
   id: string;
   name: string;
+  clientId: string | null;
+  client: { id: string; name: string } | null;
   siteId: string | null;
   site: { id: string; name: string } | null;
   createdAt: string;
@@ -23,21 +32,29 @@ interface Group {
 
 export default function OrganizationPage() {
   const { t } = useI18n();
+  const [clients, setClients] = useState<Client[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [siteName, setSiteName] = useState('');
+  const [siteClientId, setSiteClientId] = useState('');
   const [siteSubmitting, setSiteSubmitting] = useState(false);
 
   const [groupName, setGroupName] = useState('');
   const [groupSiteId, setGroupSiteId] = useState('');
+  const [groupClientId, setGroupClientId] = useState('');
   const [groupSubmitting, setGroupSubmitting] = useState(false);
 
   async function load() {
     try {
-      const [s, g] = await Promise.all([apiFetch<Site[]>('/sites'), apiFetch<Group[]>('/groups')]);
+      const [c, s, g] = await Promise.all([
+        apiFetch<Client[]>('/clients'),
+        apiFetch<Site[]>('/sites'),
+        apiFetch<Group[]>('/groups'),
+      ]);
+      setClients(c);
       setSites(s);
       setGroups(g);
     } catch (err) {
@@ -57,8 +74,9 @@ export default function OrganizationPage() {
     setError(null);
     setSiteSubmitting(true);
     try {
-      await apiFetch('/sites', { method: 'POST', body: JSON.stringify({ name: siteName }) });
+      await apiFetch('/sites', { method: 'POST', body: JSON.stringify({ name: siteName, clientId: siteClientId }) });
       setSiteName('');
+      setSiteClientId('');
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
@@ -74,10 +92,15 @@ export default function OrganizationPage() {
     try {
       await apiFetch('/groups', {
         method: 'POST',
-        body: JSON.stringify({ name: groupName, siteId: groupSiteId || undefined }),
+        body: JSON.stringify({
+          name: groupName,
+          siteId: groupSiteId || undefined,
+          clientId: groupSiteId ? undefined : groupClientId || undefined,
+        }),
       });
       setGroupName('');
       setGroupSiteId('');
+      setGroupClientId('');
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
@@ -116,11 +139,24 @@ export default function OrganizationPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section>
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">{t('org.sites')}</h2>
-          <form onSubmit={createSite} className="card mb-4 flex items-end gap-3 p-4">
-            <div className="flex-1">
+          <h2 className="mb-3 text-sm font-semibold text-slate-700">{t('org.locations')}</h2>
+          <form onSubmit={createSite} className="card mb-4 grid gap-3 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <div>
               <label className="label">{t('org.siteName')}</label>
               <input value={siteName} onChange={(e) => setSiteName(e.target.value)} required className="input" />
+            </div>
+            <div>
+              <label className="label">{t('clients.title')}</label>
+              <select value={siteClientId} onChange={(e) => setSiteClientId(e.target.value)} required className="input">
+                <option value="" disabled>
+                  {t('org.selectClient')}
+                </option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <button type="submit" disabled={siteSubmitting} className="btn-primary">
               {t('org.addSite')}
@@ -132,21 +168,23 @@ export default function OrganizationPage() {
               <thead>
                 <tr>
                   <th>{t('org.siteName')}</th>
+                  <th>{t('clients.title')}</th>
                   <th>{t('common.device')}</th>
                   <th>{t('org.groups')}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
-                {loading && <LoadingRow colSpan={4} />}
+                {loading && <LoadingRow colSpan={5} />}
                 {!loading && sites.length === 0 && (
-                  <EmptyRow colSpan={4} icon="mapPin">
+                  <EmptyRow colSpan={5} icon="mapPin">
                     {t('org.sitesEmpty')}
                   </EmptyRow>
                 )}
                 {sites.map((s) => (
                   <tr key={s.id} className="align-top hover:bg-slate-50">
                     <td className="font-medium text-slate-900">{s.name}</td>
+                    <td className="text-slate-600">{s.client?.name ?? '—'}</td>
                     <td className="text-slate-600">{t('org.devices', { n: s._count.devices })}</td>
                     <td className="text-slate-600">{t('org.groupsCount', { n: s._count.groups })}</td>
                     <td className="text-right">
@@ -163,25 +201,42 @@ export default function OrganizationPage() {
 
         <section>
           <h2 className="mb-3 text-sm font-semibold text-slate-700">{t('org.groups')}</h2>
-          <form onSubmit={createGroup} className="card mb-4 grid gap-3 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <form onSubmit={createGroup} className="card mb-4 grid gap-3 p-4">
             <div>
               <label className="label">{t('org.groupName')}</label>
               <input value={groupName} onChange={(e) => setGroupName(e.target.value)} required className="input" />
             </div>
-            <div>
-              <label className="label">{t('org.sites')}</label>
-              <select value={groupSiteId} onChange={(e) => setGroupSiteId(e.target.value)} className="input">
-                <option value="">{t('org.noSite')}</option>
-                {sites.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label">{t('org.locations')}</label>
+                <select value={groupSiteId} onChange={(e) => setGroupSiteId(e.target.value)} className="input">
+                  <option value="">{t('org.noSite')}</option>
+                  {sites.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {!groupSiteId && (
+                <div>
+                  <label className="label">{t('clients.title')}</label>
+                  <select value={groupClientId} onChange={(e) => setGroupClientId(e.target.value)} className="input">
+                    <option value="">{t('org.selectClient')}</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
-            <button type="submit" disabled={groupSubmitting} className="btn-primary">
-              {t('org.addGroup')}
-            </button>
+            <div className="flex justify-end">
+              <button type="submit" disabled={groupSubmitting} className="btn-primary">
+                {t('org.addGroup')}
+              </button>
+            </div>
           </form>
 
           <div className="table-wrap">
@@ -189,21 +244,23 @@ export default function OrganizationPage() {
               <thead>
                 <tr>
                   <th>{t('org.groupName')}</th>
-                  <th>{t('org.sites')}</th>
+                  <th>{t('clients.title')}</th>
+                  <th>{t('org.locations')}</th>
                   <th>{t('common.device')}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
-                {loading && <LoadingRow colSpan={4} />}
+                {loading && <LoadingRow colSpan={5} />}
                 {!loading && groups.length === 0 && (
-                  <EmptyRow colSpan={4} icon="users">
+                  <EmptyRow colSpan={5} icon="users">
                     {t('org.groupsEmpty')}
                   </EmptyRow>
                 )}
                 {groups.map((g) => (
                   <tr key={g.id} className="align-top hover:bg-slate-50">
                     <td className="font-medium text-slate-900">{g.name}</td>
+                    <td className="text-slate-600">{g.client?.name ?? '—'}</td>
                     <td className="text-slate-600">{g.site?.name ?? t('org.noSite')}</td>
                     <td className="text-slate-600">{t('org.devices', { n: g._count.devices })}</td>
                     <td className="text-right">

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useDevices } from '@/lib/useDevices';
+import { useClientFilter } from '@/lib/ClientFilter';
 import { Icon } from '@/lib/icons';
 import { EmptyRow, ErrorBanner, LoadingRow, PageHeader } from '@/lib/ui';
 
@@ -20,6 +21,7 @@ interface SoftwareRow {
 export default function SoftwarePage() {
   const { t, formatDateTime } = useI18n();
   const { nameOf } = useDevices();
+  const { clientId } = useClientFilter();
   const [items, setItems] = useState<SoftwareRow[]>([]);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +29,10 @@ export default function SoftwarePage() {
 
   async function load(name?: string) {
     try {
-      const query = name ? `?name=${encodeURIComponent(name)}` : '';
-      setItems(await apiFetch<SoftwareRow[]>(`/software${query}`));
+      const params = new URLSearchParams();
+      if (name) params.set('name', name);
+      if (clientId) params.set('clientId', clientId);
+      setItems(await apiFetch<SoftwareRow[]>(`/software?${params}`));
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
@@ -40,7 +44,7 @@ export default function SoftwarePage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clientId]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

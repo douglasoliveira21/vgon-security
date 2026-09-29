@@ -27,6 +27,6 @@ export class EventsController {
   @RequirePermissions(Permission.EVENTS_READ)
   @Get()
   timeline(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryEventsDto) {
-    return this.eventsService.timeline(user.tenantId, query);
+    return this.eventsService.timeline(user, query);
   }
 }

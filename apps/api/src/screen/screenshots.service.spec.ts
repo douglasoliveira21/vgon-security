@@ -37,7 +37,7 @@ describe('ScreenshotsService', () => {
     ]);
     const service = new ScreenshotsService(prisma as any);
 
-    const rows = await service.list('t1', 'd1');
+    const rows = await service.list({ tenantId: 't1', clientId: null } as any, 'd1');
 
     expect(rows).toEqual([
       expect.objectContaining({ id: 's1', imageBase64: image.toString('base64') }),

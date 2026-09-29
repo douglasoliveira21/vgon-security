@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { deviceClientScopeWhere } from '../common/client-scope.util';
 
 @Controller('security/findings')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -25,6 +26,7 @@ export class SecurityController {
         deviceId: query.deviceId,
         status: query.status,
         severity: query.severity,
+        ...deviceClientScopeWhere(user, query.clientId),
       },
       orderBy: [{ status: 'asc' }, { detectedAt: 'desc' }],
       take: 500,
@@ -36,7 +38,9 @@ export class SecurityController {
   @Post(':id/resolve')
   @RequirePermissions(Permission.SECURITY_MANAGE)
   async resolve(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
-    const existing = await this.prisma.securityFinding.findFirst({ where: { id, tenantId: user.tenantId } });
+    const existing = await this.prisma.securityFinding.findFirst({
+      where: { id, tenantId: user.tenantId, ...deviceClientScopeWhere(user) },
+    });
     if (!existing) throw new NotFoundException('Finding not found');
 
     const finding = await this.prisma.securityFinding.update({

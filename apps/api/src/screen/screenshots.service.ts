@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { clientScopeWhere, deviceClientScopeWhere } from '../common/client-scope.util';
 
 const RETENTION_DAYS = 7;
 const DEFAULT_TAKE = 12;
@@ -52,9 +54,11 @@ export class ScreenshotsService {
   /** Metadata + inlined base64 image — simplest viable payload for a thumbnail grid at this
    * app's scale (see EASYPANEL.md/README's stated preference against speculative infrastructure);
    * revisit with a dedicated image-bytes endpoint if screenshot volume ever makes this heavy. */
-  async list(tenantId: string, deviceId: string, take = DEFAULT_TAKE) {
+  async list(actor: AuthenticatedUser, deviceId: string, take = DEFAULT_TAKE) {
     const rows = await this.prisma.screenshot.findMany({
-      where: { tenantId, deviceId },
+      // Scoped via the device relation too — otherwise a client-scoped user could read another
+      // client's screenshots just by guessing/copying a deviceId from elsewhere in the tenant.
+      where: { tenantId: actor.tenantId, deviceId, ...deviceClientScopeWhere(actor) },
       orderBy: { capturedAt: 'desc' },
       take,
     });
@@ -69,12 +73,15 @@ export class ScreenshotsService {
   }
 
   /** One row per enrolled device: the dashboard's overview grid. */
-  async latestPerDevice(tenantId: string) {
-    const devices = await this.prisma.device.findMany({ where: { tenantId }, select: { id: true, hostname: true } });
+  async latestPerDevice(actor: AuthenticatedUser, requestedClientId?: string) {
+    const devices = await this.prisma.device.findMany({
+      where: { tenantId: actor.tenantId, ...clientScopeWhere(actor, requestedClientId) },
+      select: { id: true, hostname: true },
+    });
     const results = await Promise.all(
       devices.map(async (d) => {
         const latest = await this.prisma.screenshot.findFirst({
-          where: { tenantId, deviceId: d.id },
+          where: { tenantId: actor.tenantId, deviceId: d.id },
           orderBy: { capturedAt: 'desc' },
         });
         return {

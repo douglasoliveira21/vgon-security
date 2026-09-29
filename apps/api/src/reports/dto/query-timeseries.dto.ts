@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class QueryTimeseriesDto {
   @IsOptional()
@@ -8,4 +8,8 @@ export class QueryTimeseriesDto {
   @Min(1)
   @Max(90)
   days?: number;
+
+  @IsOptional()
+  @IsString()
+  clientId?: string;
 }

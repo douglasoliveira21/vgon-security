@@ -30,15 +30,15 @@ export class ScreenshotsController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(Permission.SCREEN_VIEW)
   @Get('screenshots/latest')
-  latestPerDevice(@CurrentUser() user: AuthenticatedUser) {
-    return this.screenshots.latestPerDevice(user.tenantId);
+  latestPerDevice(@CurrentUser() user: AuthenticatedUser, @Query('clientId') clientId?: string) {
+    return this.screenshots.latestPerDevice(user, clientId);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(Permission.SCREEN_VIEW)
   @Get('devices/:id/screenshots')
   list(@CurrentUser() user: AuthenticatedUser, @Param('id') deviceId: string, @Query() query: ListScreenshotsDto) {
-    return this.screenshots.list(user.tenantId, deviceId, query.take);
+    return this.screenshots.list(user, deviceId, query.take);
   }
 
   // --- Agent (device) endpoint ---

@@ -4,6 +4,10 @@ export class UpdateDeviceDto {
   // Empty string clears the assignment; omitted leaves it unchanged.
   @IsOptional()
   @IsString()
+  clientId?: string | null;
+
+  @IsOptional()
+  @IsString()
   siteId?: string | null;
 
   @IsOptional()

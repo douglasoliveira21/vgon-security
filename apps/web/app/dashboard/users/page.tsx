@@ -14,6 +14,13 @@ interface UserRow {
   isActive: boolean;
   createdAt: string;
   hasPassword: boolean;
+  clientId: string | null;
+  client: { id: string; name: string } | null;
+}
+
+interface Client {
+  id: string;
+  name: string;
 }
 
 const ROLES = ['OWNER', 'ADMINISTRATOR', 'SECURITY_ADMIN', 'IT_ADMIN', 'ANALYST', 'VIEWER'] as const;
@@ -21,6 +28,7 @@ const ROLES = ['OWNER', 'ADMINISTRATOR', 'SECURITY_ADMIN', 'IT_ADMIN', 'ANALYST'
 export default function UsersPage() {
   const { t, formatDateTime } = useI18n();
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -28,12 +36,16 @@ export default function UsersPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<(typeof ROLES)[number]>('VIEWER');
+  const [visibility, setVisibility] = useState<'all' | 'specific'>('all');
+  const [clientId, setClientId] = useState('');
 
   const self = getSessionUser();
 
   async function load() {
     try {
-      setUsers(await apiFetch<UserRow[]>('/users'));
+      const [u, c] = await Promise.all([apiFetch<UserRow[]>('/users'), apiFetch<Client[]>('/clients')]);
+      setUsers(u);
+      setClients(c);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
     } finally {
@@ -51,10 +63,15 @@ export default function UsersPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await apiFetch('/users', { method: 'POST', body: JSON.stringify({ name, email, role }) });
+      await apiFetch('/users', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, role, clientId: visibility === 'specific' ? clientId : undefined }),
+      });
       setName('');
       setEmail('');
       setRole('VIEWER');
+      setVisibility('all');
+      setClientId('');
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
@@ -96,7 +113,29 @@ export default function UsersPage() {
             ))}
           </select>
         </div>
-        <div className="flex items-end justify-end">
+        <div>
+          <label className="label">{t('clients.visibility')}</label>
+          <select value={visibility} onChange={(e) => setVisibility(e.target.value as 'all' | 'specific')} className="input">
+            <option value="all">{t('clients.visibility.all')}</option>
+            <option value="specific">{t('clients.visibility.specific')}</option>
+          </select>
+        </div>
+        {visibility === 'specific' && (
+          <div className="sm:col-span-2">
+            <label className="label">{t('clients.title')}</label>
+            <select value={clientId} onChange={(e) => setClientId(e.target.value)} required className="input">
+              <option value="" disabled>
+                {t('org.selectClient')}
+              </option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="flex items-end justify-end sm:col-span-2">
           <button type="submit" disabled={submitting} className="btn-primary">
             {submitting ? t('users.inviting') : t('users.invite')}
           </button>
@@ -112,15 +151,16 @@ export default function UsersPage() {
               <th>{t('users.name')}</th>
               <th>{t('users.email')}</th>
               <th>{t('users.role')}</th>
+              <th>{t('clients.title')}</th>
               <th>{t('users.col.status')}</th>
               <th>{t('common.updated')}</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {loading && <LoadingRow colSpan={6} />}
+            {loading && <LoadingRow colSpan={7} />}
             {!loading && users.length === 0 && (
-              <EmptyRow colSpan={6} icon="users">
+              <EmptyRow colSpan={7} icon="users">
                 {t('users.empty')}
               </EmptyRow>
             )}
@@ -131,6 +171,7 @@ export default function UsersPage() {
                 <td>
                   <Badge tone="blue">{t(`users.role.${u.role}` as TranslationKey)}</Badge>
                 </td>
+                <td className="text-slate-600">{u.client?.name ?? t('clients.allClients')}</td>
                 <td>
                   {!u.isActive ? (
                     <Badge tone="slate">{t('users.status.inactive')}</Badge>

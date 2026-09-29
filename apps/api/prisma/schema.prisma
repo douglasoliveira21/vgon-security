@@ -19,6 +19,7 @@ model Tenant {
   updatedAt DateTime @updatedAt
 
   users              User[]
+  clients            Client[]
   sites              Site[]
   groups             Group[]
   devices            Device[]
@@ -35,14 +36,38 @@ model Tenant {
   @@map("tenants")
 }
 
-// Optional hierarchy: Tenant -> Sites -> Groups -> Devices (section 3).
-model Site {
+// Top-level customer/organization a tenant (MSP account) manages — sits above Site (labeled
+// "Localização" in the UI) in the hierarchy: Client -> Site -> Group -> Device. A user can be
+// scoped to a single Client (User.clientId) so they only ever see that client's data.
+model Client {
   id        String   @id @default(uuid())
   tenantId  String
   name      String
   createdAt DateTime @default(now())
 
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sites              Site[]
+  groups             Group[]
+  devices            Device[]
+  users              User[]
+  provisioningTokens ProvisioningToken[]
+
+  @@unique([tenantId, name])
+  @@map("clients")
+}
+
+// Optional hierarchy: Tenant -> Client -> Site ("Localização") -> Group ("Departamento") ->
+// Device (section 3). clientId is nullable so existing rows from before Client existed don't
+// break; the UI requires picking a client when creating a new Site.
+model Site {
+  id        String   @id @default(uuid())
+  tenantId  String
+  clientId  String?
+  name      String
+  createdAt DateTime @default(now())
+
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   groups  Group[]
   devices Device[]
 
@@ -53,11 +78,13 @@ model Site {
 model Group {
   id        String   @id @default(uuid())
   tenantId  String
+  clientId  String?
   siteId    String?
   name      String
   createdAt DateTime @default(now())
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   site    Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
   devices Device[]
 
@@ -81,6 +108,9 @@ enum Role {
 model User {
   id           String   @id @default(uuid())
   tenantId     String
+  // null = sees every client under the tenant (the pre-existing, full-tenant-scope behavior);
+  // set = restricted to only this client's devices, sites, groups, events, etc.
+  clientId     String?
   email        String
   // Nullable: an invited user has no password until they accept the invite and set one
   // (see UserActionToken/INVITE) — such a user cannot log in until passwordHash is set.
@@ -92,6 +122,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client       Client?           @relation(fields: [clientId], references: [id], onDelete: SetNull)
   actionTokens UserActionToken[]
 
   @@unique([tenantId, email])
@@ -137,6 +168,9 @@ enum DeviceStatus {
 model Device {
   id              String       @id @default(uuid())
   tenantId        String
+  // Direct assignment for filtering, independent of siteId/groupId — a device can be assigned
+  // to a client before (or without ever having) a Site/Group set.
+  clientId        String?
   siteId          String?
   groupId         String?
   hostname        String?
@@ -157,6 +191,7 @@ model Device {
   updatedAt       DateTime     @updatedAt
 
   tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client        Client?             @relation(fields: [clientId], references: [id], onDelete: SetNull)
   site          Site?               @relation(fields: [siteId], references: [id], onDelete: SetNull)
   group         Group?              @relation(fields: [groupId], references: [id], onDelete: SetNull)
   credential    AgentCredential?
@@ -167,6 +202,7 @@ model Device {
   screenshots   Screenshot[]
 
   @@index([tenantId, status])
+  @@index([tenantId, clientId])
   @@map("devices")
 }
 
@@ -175,6 +211,7 @@ model Device {
 model ProvisioningToken {
   id             String    @id @default(uuid())
   tenantId       String
+  clientId       String?
   tokenHash      String    @unique
   siteId         String?
   groupId        String?
@@ -184,7 +221,8 @@ model ProvisioningToken {
   usedByDeviceId String?
   createdAt      DateTime  @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@map("provisioning_tokens")

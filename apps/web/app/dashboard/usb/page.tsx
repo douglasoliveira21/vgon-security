@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { TranslationKey } from '@/lib/locales/en';
 import { useDevices } from '@/lib/useDevices';
+import { useClientFilter } from '@/lib/ClientFilter';
 import { formatBytes } from '@/lib/events';
 import { Badge, EmptyRow, ErrorBanner, LoadingRow, PageHeader, Timestamp, Tone } from '@/lib/ui';
 
@@ -32,15 +33,17 @@ const DECISION_TONE: Record<string, Tone> = { ALLOWED: 'green', MONITORED: 'slat
 export default function UsbPage() {
   const { t, tOr } = useI18n();
   const { nameOf } = useDevices();
+  const { clientId } = useClientFilter();
   const [events, setEvents] = useState<UsbEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     try {
+      const clientParam = clientId ? `&clientId=${clientId}` : '';
       const [connected, disconnected] = await Promise.all([
-        apiFetch<UsbEventRow[]>('/events?eventType=usb.connected&take=50'),
-        apiFetch<UsbEventRow[]>('/events?eventType=usb.disconnected&take=50'),
+        apiFetch<UsbEventRow[]>(`/events?eventType=usb.connected&take=50${clientParam}`),
+        apiFetch<UsbEventRow[]>(`/events?eventType=usb.disconnected&take=50${clientParam}`),
       ]);
       setEvents(
         [...connected, ...disconnected].sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()),
@@ -58,7 +61,7 @@ export default function UsbPage() {
     const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clientId]);
 
   return (
     <div>

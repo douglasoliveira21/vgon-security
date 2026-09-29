@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { TranslationKey } from '@/lib/locales/en';
 import { useDevices } from '@/lib/useDevices';
+import { useClientFilter } from '@/lib/ClientFilter';
 import { detailRows, EVENT_CATEGORIES, eventMeta, summarize, typesInCategory } from '@/lib/events';
 import { Icon } from '@/lib/icons';
 import { EmptyRow, ErrorBanner, LoadingRow, PageHeader, SeverityBadge } from '@/lib/ui';
@@ -24,6 +25,7 @@ export default function EventsPage() {
   const i18n = useI18n();
   const { t, formatDateTime, formatTime, relativeTime } = i18n;
   const { devices, nameOf } = useDevices();
+  const { clientId } = useClientFilter();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,7 @@ export default function EventsPage() {
     try {
       const params = new URLSearchParams({ take: '300' });
       if (deviceId) params.set('deviceId', deviceId);
+      if (clientId) params.set('clientId', clientId);
       setEvents(await apiFetch<EventRow[]>(`/events?${params}`));
       setError(null);
     } catch (err) {
@@ -54,7 +57,7 @@ export default function EventsPage() {
     const interval = setInterval(load, 10_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceId]);
+  }, [deviceId, clientId]);
 
   const visible = useMemo(() => {
     const types = category ? typesInCategory(category) : null;

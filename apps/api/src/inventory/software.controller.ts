@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { deviceClientScopeWhere } from '../common/client-scope.util';
 
 @Controller('software')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -21,6 +22,7 @@ export class SoftwareController {
         deviceId: query.deviceId,
         name: query.name ? { contains: query.name, mode: 'insensitive' } : undefined,
         removedAt: query.includeRemoved ? undefined : null,
+        ...deviceClientScopeWhere(user, query.clientId),
       },
       orderBy: { name: 'asc' },
       take: 500,

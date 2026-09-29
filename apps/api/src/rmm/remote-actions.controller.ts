@@ -11,6 +11,7 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { CurrentDevice, AuthenticatedDevice } from '../common/decorators/current-device.decorator';
+import { clientScopeWhere, deviceClientScopeWhere } from '../common/client-scope.util';
 
 @Controller()
 export class RemoteActionsController {
@@ -30,7 +31,9 @@ export class RemoteActionsController {
     @Param('id') deviceId: string,
     @Body() dto: CreateRemoteActionDto,
   ) {
-    const device = await this.prisma.device.findFirst({ where: { id: deviceId, tenantId: user.tenantId } });
+    const device = await this.prisma.device.findFirst({
+      where: { id: deviceId, tenantId: user.tenantId, ...clientScopeWhere(user) },
+    });
     if (!device) throw new NotFoundException('Device not found');
 
     const action = await this.prisma.remoteAction.create({
@@ -60,7 +63,7 @@ export class RemoteActionsController {
   @Get('devices/:id/actions')
   async listForDevice(@CurrentUser() user: AuthenticatedUser, @Param('id') deviceId: string) {
     return this.prisma.remoteAction.findMany({
-      where: { tenantId: user.tenantId, deviceId },
+      where: { tenantId: user.tenantId, deviceId, ...deviceClientScopeWhere(user) },
       orderBy: { requestedAt: 'desc' },
       take: 100,
     });

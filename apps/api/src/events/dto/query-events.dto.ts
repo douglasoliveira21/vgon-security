@@ -8,6 +8,10 @@ export class QueryEventsDto {
 
   @IsOptional()
   @IsString()
+  clientId?: string;
+
+  @IsOptional()
+  @IsString()
   eventType?: string;
 
   @IsOptional()

@@ -10,7 +10,7 @@ import { Icon } from '@/lib/icons';
 
 interface AcceptInviteResponse {
   accessToken: string;
-  user: { id: string; tenantId: string; email: string; role: string; name: string };
+  user: { id: string; tenantId: string; email: string; role: string; name: string; clientId: string | null };
 }
 
 function AcceptInviteForm() {
@@ -35,6 +35,7 @@ function AcceptInviteForm() {
         tenantId: res.user.tenantId,
         email: res.user.email,
         role: res.user.role,
+        clientId: res.user.clientId,
       });
       router.replace('/dashboard');
     } catch (err) {

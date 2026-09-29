@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { formatBytes } from '@/lib/events';
+import { useClientFilter } from '@/lib/ClientFilter';
 import { EmptyRow, ErrorBanner, LoadingRow, PageHeader } from '@/lib/ui';
 
 interface HardwareRow {
@@ -23,12 +24,15 @@ interface HardwareRow {
 
 export default function HardwarePage() {
   const { t, formatDateTime } = useI18n();
+  const { clientId } = useClientFilter();
   const [devices, setDevices] = useState<HardwareRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch<HardwareRow[]>('/hardware')
+    const params = new URLSearchParams();
+    if (clientId) params.set('clientId', clientId);
+    apiFetch<HardwareRow[]>(`/hardware?${params}`)
       .then((data) => {
         setDevices(data);
         setError(null);
@@ -36,7 +40,7 @@ export default function HardwarePage() {
       .catch((err) => setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' })))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clientId]);
 
   return (
     <div>
