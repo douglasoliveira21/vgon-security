@@ -97,7 +97,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <span className="text-base font-semibold tracking-tight">{t('app.name')}</span>
       </div>
 
-      <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Main">
+      <nav className="sidebar-scroll flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Main">
         {NAV.map((section) => (
           <div key={section.group}>
             <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
