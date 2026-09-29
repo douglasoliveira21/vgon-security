@@ -1,0 +1,116 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="VGON Security+ Agent"
+           Manufacturer="VGON"
+           Version="$(var.InstallerVersion)"
+           UpgradeCode="6B1F6E0A-3C57-4B8E-9E52-7D0C1A4F2B91"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of VGON Security+ Agent is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Pass on the command line: msiexec /i ... APIURL=https://api/api/v1 TOKEN=xxxx /qn -->
+    <Property Id="APIURL" Secure="yes" Value="$(var.ApiUrl)" />
+    <Property Id="TOKEN" Secure="yes" />
+    <Property Id="TOKEN_VALID" Value="0" />
+    <Property Id="TOKEN_MSG" Value="Cole o token e clique em Validar token (ou em Avançar)." />
+
+    <Binary Id="ValidateTokenJs" SourceFile="ValidateToken.js" />
+    <CustomAction Id="ValidateToken" BinaryRef="ValidateTokenJs" JScriptCall="ValidateToken" Execute="immediate" Return="check" />
+
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+
+    <UI>
+      <Dialog Id="ConfigDlg" Width="370" Height="270" Title="VGON Security+ Agent - Setup">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Conexão com o VGON Security+" />
+        <Control Id="Desc" Type="Text" X="25" Y="23" Width="330" Height="30" Transparent="yes" NoPrefix="yes" Text="Informe o endereço da API e o token de provisionamento gerado no dashboard (Dispositivos > Gerar token)." />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="UrlLabel" Type="Text" X="20" Y="65" Width="330" Height="12" Text="URL da API (obrigatória):" />
+        <Control Id="UrlEdit" Type="Edit" X="20" Y="80" Width="330" Height="18" Property="APIURL" />
+        <Control Id="TokenLabel" Type="Text" X="20" Y="112" Width="330" Height="12" Text="Token de provisionamento:" />
+        <Control Id="TokenEdit" Type="Edit" X="20" Y="127" Width="250" Height="18" Property="TOKEN" />
+        <Control Id="ValidateBtn" Type="PushButton" X="278" Y="126" Width="72" Height="20" Text="Validar token">
+          <Publish Event="DoAction" Value="ValidateToken" Order="1" />
+          <!-- A modal result box is built fresh, so it shows the current [TOKEN_MSG] (a label on ConfigDlg would not refresh). -->
+          <Publish Event="SpawnDialog" Value="TokenResultDlg" Order="2" />
+        </Control>
+        <Control Id="Hint" Type="Text" X="20" Y="195" Width="330" Height="30" Transparent="yes" NoPrefix="yes" Text="O token é de uso único e só é necessário na primeira instalação da máquina. Em atualizações pode ficar em branco." />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="{\WixUI_Font_Normal}Voltar">
+          <Publish Event="NewDialog" Value="InstallDirDlg" />
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="Avançar">
+          <Publish Event="DoAction" Value="ValidateToken"  Order="1" />
+          <Publish Event="NewDialog" Value="VerifyReadyDlg" Order="2" Condition="TOKEN_VALID = &quot;1&quot; OR (TOKEN = &quot;&quot; AND APIURL &lt;&gt; &quot;&quot; AND WIX_UPGRADE_DETECTED)" />
+          <Publish Event="SpawnDialog" Value="TokenResultDlg" Order="3" Condition="NOT (TOKEN_VALID = &quot;1&quot; OR (TOKEN = &quot;&quot; AND APIURL &lt;&gt; &quot;&quot; AND WIX_UPGRADE_DETECTED))" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancelar">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <Dialog Id="TokenResultDlg" Width="260" Height="85" Title="VGON Security+ Agent - Token">
+        <Control Id="Msg" Type="Text" X="15" Y="15" Width="230" Height="35" NoPrefix="yes" Text="[TOKEN_MSG]" />
+        <Control Id="Ok" Type="PushButton" X="102" Y="60" Width="56" Height="17" Default="yes" Cancel="yes" Text="OK">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+      </Dialog>
+
+      <!-- Skip the license page; go Welcome -> InstallDir -> Config -> Ready -->
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" Order="10" Condition="NOT Installed" />
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="10" />
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="ConfigDlg" Order="10" Condition="NOT WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID=&quot;1&quot;" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ConfigDlg" Order="10" Condition="NOT Installed" />
+    </UI>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="VendorFolder" Name="VgonSecurityPlus">
+        <Directory Id="INSTALLFOLDER" Name="Agent" />
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="VGON Security+ Agent" Level="1">
+      <ComponentGroupRef Id="AgentFiles" />
+      <ComponentRef Id="AgentService" />
+      <ComponentRef Id="ConfigScript" />
+    </Feature>
+
+    <ComponentGroup Id="AgentFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="$(var.PublishDir)\VgonAgent.exe" />
+        <Exclude Files="$(var.PublishDir)\appsettings.Production.json" />
+      </Files>
+    </ComponentGroup>
+
+    <Component Id="AgentService" Directory="INSTALLFOLDER" Bitness="always64">
+      <File Id="VgonAgentExe" Source="$(var.PublishDir)\VgonAgent.exe" KeyPath="yes" />
+      <ServiceInstall Id="VgonAgentSvc"
+                      Name="VgonSecurityPlusAgent"
+                      DisplayName="VGON Security+ Agent"
+                      Description="VGON Security+ endpoint monitoring agent"
+                      Type="ownProcess"
+                      Start="auto"
+                      Account="LocalSystem"
+                      ErrorControl="normal" />
+      <util:ServiceConfig ServiceName="VgonSecurityPlusAgent"
+                     FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart"
+                     RestartServiceDelayInSeconds="5" ResetPeriodInDays="1"
+                     />
+      <ServiceControl Id="VgonAgentCtl" Name="VgonSecurityPlusAgent" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+    </Component>
+
+    <Component Id="ConfigScript" Directory="INSTALLFOLDER" Bitness="always64">
+      <File Id="ConfigureScript" Source="Configure.ps1" KeyPath="yes" />
+      <RemoveFile Id="RmProdCfg" Name="appsettings.Production.json" On="uninstall" />
+    </Component>
+
+    <!-- Writes appsettings.Production.json before the service starts. -->
+    <SetProperty Id="WriteConfig" Sequence="execute" Before="WriteConfig" Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]Configure.ps1&quot; -InstallDir &quot;[INSTALLFOLDER].&quot; -ApiUrl &quot;[APIURL]&quot; -Token &quot;[TOKEN]&quot;" />
+    <CustomAction Id="WriteConfig" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64" Execute="deferred" Impersonate="no" Return="check" />
+
+    <InstallExecuteSequence>
+      <Custom Action="WriteConfig" After="InstallFiles" Condition="NOT REMOVE~=&quot;ALL&quot; AND (APIURL &lt;&gt; &quot;&quot; OR TOKEN &lt;&gt; &quot;&quot;)" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

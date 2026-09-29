@@ -4,6 +4,7 @@ import { Permission } from '@vgon/shared';
 import { AgentsService } from './agents.service';
 import { CreateProvisioningTokenDto } from './dto/create-provisioning-token.dto';
 import { RegisterDeviceDto } from './dto/register-device.dto';
+import { ValidateProvisioningTokenDto } from './dto/validate-provisioning-token.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { Public } from '../common/decorators/public.decorator';
@@ -36,6 +37,13 @@ export class AgentsController {
   }
 
   // --- Agent (device) endpoints ---
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('provisioning-tokens/validate')
+  validateProvisioningToken(@Body() dto: ValidateProvisioningTokenDto) {
+    return this.agentsService.validateProvisioningToken(dto);
+  }
 
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })

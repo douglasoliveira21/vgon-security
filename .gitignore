@@ -14,3 +14,7 @@ coverage/
 Thumbs.db
 apps/api/generated/
 *.tsbuildinfo
+agent/Installer/publish/
+agent/Installer/bin/
+agent/Installer/obj/
+agent/Installer/dist/

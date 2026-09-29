@@ -7,6 +7,7 @@ import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AuthenticatedDevice } from '../common/decorators/current-device.decorator';
 import { CreateProvisioningTokenDto } from './dto/create-provisioning-token.dto';
 import { RegisterDeviceDto } from './dto/register-device.dto';
+import { ValidateProvisioningTokenDto } from './dto/validate-provisioning-token.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { generateOpaqueToken, hashToken } from './token.util';
@@ -52,6 +53,18 @@ export class AgentsService {
 
     // Plaintext token is returned exactly once; only its hash is ever persisted.
     return { provisioningToken: plaintext, expiresAt };
+  }
+
+  /** Read-only check used by the MSI installer — never consumes the token (only register does). */
+  async validateProvisioningToken(dto: ValidateProvisioningTokenDto) {
+    const token = await this.prisma.provisioningToken.findUnique({
+      where: { tokenHash: hashToken(dto.provisioningToken) },
+      select: { usedAt: true, expiresAt: true },
+    });
+    if (!token) return { valid: false, reason: 'NOT_FOUND' as const };
+    if (token.usedAt) return { valid: false, reason: 'ALREADY_USED' as const };
+    if (token.expiresAt < new Date()) return { valid: false, reason: 'EXPIRED' as const };
+    return { valid: true, expiresAt: token.expiresAt };
   }
 
   async registerDevice(dto: RegisterDeviceDto, ip?: string) {

@@ -1,0 +1,15 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <OutputName>VgonSecurityPlusAgent</OutputName>
+    <Platform Condition="'$(Platform)' == ''">x64</Platform>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <ApiUrl Condition="'$(ApiUrl)' == ''">https://api.sec.vgon.com.br/api/v1</ApiUrl>
+    <InstallerVersion Condition="'$(InstallerVersion)' == ''">1.0.0</InstallerVersion>
+    <DefineConstants>InstallerVersion=$(InstallerVersion);ApiUrl=$(ApiUrl);PublishDir=$(PublishDir);$(DefineConstants)</DefineConstants>
+    <SuppressValidation Condition="'$(SuppressValidation)' == ''">false</SuppressValidation>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+</Project>
