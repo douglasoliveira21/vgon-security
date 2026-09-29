@@ -18,6 +18,32 @@ public sealed class SoftwareSnapshotStore
         _filePath = Path.Combine(dataDirectory, "software-snapshot.json");
     }
 
+    private string SyncFilePath => Path.Combine(Path.GetDirectoryName(_filePath)!, "software-sync.txt");
+
+    /// <summary>
+    /// The inventory is sent as a delta, so a delta that is lost in transit (queue purged after repeated
+    /// upload failures, API down for a while) would never be re-sent — the Cloud would stay empty forever.
+    /// A periodic full re-send heals that; the Cloud upserts by (device, name, version), so it is idempotent.
+    /// </summary>
+    public bool IsFullSyncDue(DateTimeOffset now, TimeSpan interval)
+    {
+        try
+        {
+            if (!File.Exists(SyncFilePath)) return true;
+            return DateTimeOffset.TryParse(File.ReadAllText(SyncFilePath), out var last) ? now - last >= interval : true;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    public void MarkFullSync(DateTimeOffset now)
+    {
+        try { File.WriteAllText(SyncFilePath, now.ToString("O")); }
+        catch { /* non-fatal — worst case another full send happens next cycle */ }
+    }
+
     public Dictionary<string, SoftwareItem> Load()
     {
         if (!File.Exists(_filePath)) return new Dictionary<string, SoftwareItem>();

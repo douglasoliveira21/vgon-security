@@ -224,7 +224,7 @@ export const en = {
   'usb.col.serial': 'Serial',
   'usb.col.capacity': 'Capacity',
   'usb.col.policy': 'Policy',
-  'usb.empty': 'No USB activity yet.',
+  'usb.empty': 'No USB activity yet. The Agent records USB devices plugged in after it started (and their removal) — plug one in on an enrolled computer and it shows up here within seconds.',
   'usb.connected': 'Connected',
   'usb.disconnected': 'Disconnected',
   'usb.decision.ALLOWED': 'Allowed',
@@ -237,7 +237,7 @@ export const en = {
   'printers.col.printer': 'Printer',
   'printers.col.document': 'Document',
   'printers.col.pages': 'Pages',
-  'printers.empty': 'No print jobs yet.',
+  'printers.empty': 'No print jobs yet. The Agent records jobs that pass through the Windows print queue after it started — print something on an enrolled computer and it shows up here.',
 
   // Hardware
   'hardware.title': 'Hardware inventory',
@@ -259,7 +259,7 @@ export const en = {
   'software.col.publisher': 'Publisher',
   'software.col.arch': 'Architecture',
   'software.col.lastSeen': 'Last seen',
-  'software.empty': 'No software inventory reported yet.',
+  'software.empty': 'No software inventory yet. The Agent sends the list of installed applications shortly after it enrolls and re-sends it every 24 hours.',
 
   // Security
   'security.title': 'Security Center',

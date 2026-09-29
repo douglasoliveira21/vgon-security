@@ -225,7 +225,7 @@ export const pt: Record<TranslationKey, string> = {
   'usb.col.serial': 'Nº de série',
   'usb.col.capacity': 'Capacidade',
   'usb.col.policy': 'Política',
-  'usb.empty': 'Nenhuma atividade USB ainda.',
+  'usb.empty': 'Nenhuma atividade USB ainda. O Agente registra os dispositivos USB conectados depois que ele iniciou (e a remoção deles) — conecte um em um computador cadastrado e ele aparece aqui em segundos.',
   'usb.connected': 'Conectado',
   'usb.disconnected': 'Desconectado',
   'usb.decision.ALLOWED': 'Permitido',
@@ -238,7 +238,7 @@ export const pt: Record<TranslationKey, string> = {
   'printers.col.printer': 'Impressora',
   'printers.col.document': 'Documento',
   'printers.col.pages': 'Páginas',
-  'printers.empty': 'Nenhuma impressão registrada ainda.',
+  'printers.empty': 'Nenhuma impressão registrada ainda. O Agente registra os trabalhos que passam pela fila de impressão do Windows depois que ele iniciou — imprima algo em um computador cadastrado e aparece aqui.',
 
   // Hardware
   'hardware.title': 'Inventário de hardware',
@@ -260,7 +260,7 @@ export const pt: Record<TranslationKey, string> = {
   'software.col.publisher': 'Fabricante',
   'software.col.arch': 'Arquitetura',
   'software.col.lastSeen': 'Visto por último',
-  'software.empty': 'Nenhum inventário de softwares reportado ainda.',
+  'software.empty': 'Nenhum inventário de softwares ainda. O Agente envia a lista de aplicativos instalados logo após o cadastro e a reenvia a cada 24 horas.',
 
   // Security
   'security.title': 'Central de segurança',

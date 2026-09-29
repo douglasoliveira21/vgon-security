@@ -20,6 +20,7 @@ namespace VgonAgent.Collectors;
 public sealed class SoftwareCollector : BackgroundService
 {
     private const string CollectorName = "software";
+    private static readonly TimeSpan FullSyncInterval = TimeSpan.FromHours(24);
 
     private readonly IInstalledSoftwareReader _reader;
     private readonly IEventQueue _queue;
@@ -99,6 +100,13 @@ public sealed class SoftwareCollector : BackgroundService
         var previous = _snapshotStore.Load();
         var diff = SoftwareDiffer.Diff(current, previous);
 
+        // Periodically re-send everything as "added" (see SoftwareSnapshotStore.IsFullSyncDue).
+        var fullSync = _snapshotStore.IsFullSyncDue(DateTimeOffset.UtcNow, FullSyncInterval);
+        if (fullSync)
+        {
+            diff = new SoftwareDiff(current.ToList(), diff.Removed);
+        }
+
         if (diff.Added.Count == 0 && diff.Removed.Count == 0)
         {
             return;
@@ -115,5 +123,6 @@ public sealed class SoftwareCollector : BackgroundService
 
         _logger.LogInformation("Software inventory delta: +{Added} / -{Removed}", diff.Added.Count, diff.Removed.Count);
         _snapshotStore.Save(current);
+        if (fullSync) _snapshotStore.MarkFullSync(DateTimeOffset.UtcNow);
     }
 }

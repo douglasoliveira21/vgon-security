@@ -35,4 +35,20 @@ public sealed class SoftwareSnapshotStoreTests : IDisposable
 
         Assert.True(reloaded.ContainsKey(SoftwareDiffer.Key(items[0])));
     }
+
+    [Fact]
+    public void Full_sync_is_due_until_marked_then_again_after_the_interval()
+    {
+        var store = new SoftwareSnapshotStore(_tempDir);
+        var now = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
+        var interval = TimeSpan.FromHours(24);
+
+        Assert.True(store.IsFullSyncDue(now, interval));
+
+        store.MarkFullSync(now);
+
+        Assert.False(store.IsFullSyncDue(now.AddHours(23), interval));
+        Assert.True(store.IsFullSyncDue(now.AddHours(24), interval));
+        Assert.False(new SoftwareSnapshotStore(_tempDir).IsFullSyncDue(now.AddHours(1), interval));
+    }
 }
