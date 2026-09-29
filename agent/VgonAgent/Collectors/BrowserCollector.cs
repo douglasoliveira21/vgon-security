@@ -131,6 +131,13 @@ public sealed class BrowserCollector : BackgroundService
         {
             // First time we see this profile: start from "now" rather than the user's entire
             // history, so enrolling a device doesn't flood the queue with years of past browsing.
+            // The baseline must be persisted right away: if it were only saved once a visit is found,
+            // every poll would recompute "now" as the baseline and never see anything newer than it.
+            if (!_cursorStore.HasCursor(database.DatabasePath))
+            {
+                _cursorStore.SetCursor(database.DatabasePath, DateTimeOffset.UtcNow);
+            }
+
             var since = _cursorStore.GetCursor(database.DatabasePath, DateTimeOffset.UtcNow);
             var visits = reader.ReadVisitsSince(database, since, _tempDirectory);
             if (visits.Count == 0) return;

@@ -18,6 +18,8 @@ public sealed class BrowserCursorStore
         _cursors = Load();
     }
 
+    public bool HasCursor(string databasePath) => _cursors.ContainsKey(databasePath);
+
     public DateTimeOffset GetCursor(string databasePath, DateTimeOffset defaultValue) =>
         _cursors.TryGetValue(databasePath, out var value) ? value : defaultValue;
 

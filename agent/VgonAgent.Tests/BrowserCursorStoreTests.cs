@@ -28,6 +28,20 @@ public sealed class BrowserCursorStoreTests : IDisposable
     }
 
     [Fact]
+    public void HasCursor_is_false_until_a_baseline_is_stored_and_survives_a_restart()
+    {
+        var path = @"C:\some\History";
+        var store = new BrowserCursorStore(_tempDir);
+        Assert.False(store.HasCursor(path));
+
+        // The collector persists "now" as the baseline on first sight, even when there are no visits yet.
+        store.SetCursor(path, DateTimeOffset.UtcNow);
+
+        Assert.True(store.HasCursor(path));
+        Assert.True(new BrowserCursorStore(_tempDir).HasCursor(path));
+    }
+
+    [Fact]
     public void Set_then_get_returns_the_stored_value_within_the_same_instance()
     {
         var store = new BrowserCursorStore(_tempDir);
