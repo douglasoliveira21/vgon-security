@@ -22,6 +22,7 @@ export const en = {
   'nav.security': 'Security Center',
   'nav.policies': 'Policies',
   'nav.releases': 'Agent releases',
+  'nav.downloadAgent': 'Download Agent',
   'nav.users': 'Users',
   'nav.organization': 'Locations & Groups',
   'nav.clients': 'Clients',

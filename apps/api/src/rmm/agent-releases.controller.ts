@@ -64,6 +64,23 @@ export class AgentReleasesController {
     });
   }
 
+  // Deliberately DEVICES_READ, not AGENTS_MANAGE: this only ever exposes the one currently
+  // published STABLE download link (never the full release history/audit trail AGENTS_MANAGE
+  // guards), so anyone who can see devices — not just whoever manages releases — can grab the
+  // installer for a new machine from the profile menu.
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.DEVICES_READ)
+  @Get('agent-releases/latest')
+  async latestForWebUser(@CurrentUser() user: AuthenticatedUser) {
+    const release = await this.prisma.agentRelease.findFirst({
+      where: { tenantId: user.tenantId, channel: ReleaseChannel.STABLE },
+      orderBy: { publishedAt: 'desc' },
+    });
+    if (!release) throw new NotFoundException('No Agent release has been published yet');
+
+    return { version: release.version, downloadUrl: release.downloadUrl };
+  }
+
   // --- Agent (device) endpoint ---
 
   @UseGuards(AgentAuthGuard)

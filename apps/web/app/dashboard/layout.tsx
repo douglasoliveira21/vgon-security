@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { clearSession, getSessionUser, getToken, SessionUser } from '@/lib/api';
+import { apiFetch, clearSession, getSessionUser, getToken, SessionUser } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { TranslationKey } from '@/lib/locales/en';
 import { LanguageSwitch } from '@/lib/LanguageSwitch';
@@ -69,6 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [user, setUser] = useState<SessionUser | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [latestAgent, setLatestAgent] = useState<{ version: string; downloadUrl: string } | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -78,6 +79,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
     setUser(getSessionUser());
   }, [router]);
+
+  // Fetched once, quietly — a tenant with nothing published yet just doesn't get the menu item
+  // (see the null check below), not an error banner.
+  useEffect(() => {
+    apiFetch<{ version: string; downloadUrl: string }>('/agent-releases/latest')
+      .then(setLatestAgent)
+      .catch(() => setLatestAgent(null));
+  }, []);
 
   // Close the mobile drawer after navigating.
   useEffect(() => {
@@ -150,6 +159,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Icon name="user" className="h-[18px] w-[18px] text-slate-400" />
                 {t('nav.profile')}
               </Link>
+              {latestAgent && (
+                <a
+                  href={latestAgent.downloadUrl}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <Icon name="download" className="h-[18px] w-[18px] text-slate-400" />
+                  <span>
+                    {t('nav.downloadAgent')}
+                    <span className="ml-1.5 text-xs text-slate-400">v{latestAgent.version}</span>
+                  </span>
+                </a>
+              )}
               <Link
                 href="/dashboard/releases"
                 className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 transition-colors hover:bg-white/10 hover:text-white"

@@ -23,6 +23,7 @@ export const pt: Record<TranslationKey, string> = {
   'nav.security': 'Central de segurança',
   'nav.policies': 'Políticas',
   'nav.releases': 'Versões do agente',
+  'nav.downloadAgent': 'Baixar Agente',
   'nav.users': 'Usuários',
   'nav.organization': 'Localizações e grupos',
   'nav.clients': 'Clientes',
