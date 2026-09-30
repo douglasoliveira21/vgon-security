@@ -17,6 +17,7 @@ import { EmailService } from '../common/email.service';
 import { TurnstileService } from '../common/turnstile.service';
 import { generateMfaSecret, mfaOtpauthUrl, verifyMfaToken } from '../common/mfa.util';
 import { generateOpaqueToken, hashToken } from '../common/token.util';
+import { requireSecret } from '../common/env.util';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import * as QRCode from 'qrcode';
 import type { User } from '@prisma/client';
@@ -132,7 +133,7 @@ export class AuthService {
     const expiresIn = rememberMe ? REMEMBER_ME_TOKEN_TTL : ACCESS_TOKEN_TTL;
     const payload = { sub: user.id, tenantId: user.tenantId, email: user.email, role: user.role };
     const accessToken = this.jwt.sign(payload, {
-      secret: process.env.JWT_ACCESS_SECRET ?? 'dev-web-access-secret',
+      secret: requireSecret('JWT_ACCESS_SECRET', 'dev-web-access-secret'),
       expiresIn,
     });
 

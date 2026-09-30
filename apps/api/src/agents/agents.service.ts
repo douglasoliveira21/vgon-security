@@ -12,6 +12,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { generateOpaqueToken, hashToken } from './token.util';
 import { MetricsService } from '../observability/metrics.service';
+import { requireSecret } from '../common/env.util';
 
 const AGENT_ACCESS_TTL = '10m';
 const AGENT_ACCESS_TTL_SECONDS = 10 * 60;
@@ -213,7 +214,7 @@ export class AgentsService {
     return this.jwt.sign(
       { sub: deviceId, tenantId, type: 'agent' },
       {
-        secret: process.env.AGENT_JWT_SECRET ?? 'dev-agent-access-secret',
+        secret: requireSecret('AGENT_JWT_SECRET', 'dev-agent-access-secret'),
         expiresIn: AGENT_ACCESS_TTL,
       },
     );

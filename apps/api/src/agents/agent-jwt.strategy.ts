@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AgentTokenStatus, DeviceStatus } from '@vgon/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { requireSecret } from '../common/env.util';
 
 export interface AgentJwtPayload {
   sub: string; // deviceId
@@ -16,7 +17,7 @@ export class AgentJwtStrategy extends PassportStrategy(Strategy, 'agent-jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.AGENT_JWT_SECRET ?? 'dev-agent-access-secret',
+      secretOrKey: requireSecret('AGENT_JWT_SECRET', 'dev-agent-access-secret'),
     });
   }
 
