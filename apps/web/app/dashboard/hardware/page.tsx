@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { formatBytes } from '@/lib/events';
 import { useClientFilter } from '@/lib/ClientFilter';
+import { useDevices } from '@/lib/useDevices';
 import { EmptyRow, ErrorBanner, LoadingRow, PageHeader } from '@/lib/ui';
 
 interface HardwareRow {
@@ -25,13 +26,18 @@ interface HardwareRow {
 export default function HardwarePage() {
   const { t, formatDateTime } = useI18n();
   const { clientId } = useClientFilter();
+  const { devices: deviceOptions } = useDevices();
+  const [deviceId, setDeviceId] = useState('');
   const [devices, setDevices] = useState<HardwareRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => setDeviceId(''), [clientId]);
+
   useEffect(() => {
     const params = new URLSearchParams();
     if (clientId) params.set('clientId', clientId);
+    if (deviceId) params.set('deviceId', deviceId);
     apiFetch<HardwareRow[]>(`/hardware?${params}`)
       .then((data) => {
         setDevices(data);
@@ -40,11 +46,21 @@ export default function HardwarePage() {
       .catch((err) => setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' })))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
+  }, [clientId, deviceId]);
 
   return (
     <div>
       <PageHeader title={t('hardware.title')} subtitle={t('hardware.subtitle')} />
+
+      <div className="mb-4">
+        <select className="input w-auto" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
+          <option value="">{t('common.allDevices')}</option>
+          {deviceOptions.map((d) => (
+            <option key={d.id} value={d.id}>{d.hostname ?? d.id.slice(0, 8)}</option>
+          ))}
+        </select>
+      </div>
+
       <ErrorBanner message={error} />
 
       <div className="table-wrap">

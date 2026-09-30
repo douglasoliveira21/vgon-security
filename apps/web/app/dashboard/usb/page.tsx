@@ -32,18 +32,27 @@ const DECISION_TONE: Record<string, Tone> = { ALLOWED: 'green', MONITORED: 'slat
 
 export default function UsbPage() {
   const { t, tOr } = useI18n();
-  const { nameOf } = useDevices();
+  const { devices, nameOf } = useDevices();
   const { clientId } = useClientFilter();
+  const [deviceId, setDeviceId] = useState('');
   const [events, setEvents] = useState<UsbEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => setDeviceId(''), [clientId]);
+
   async function load() {
     try {
-      const clientParam = clientId ? `&clientId=${clientId}` : '';
+      const params = new URLSearchParams({ take: '50' });
+      if (clientId) params.set('clientId', clientId);
+      if (deviceId) params.set('deviceId', deviceId);
+      const connectedParams = new URLSearchParams(params);
+      connectedParams.set('eventType', 'usb.connected');
+      const disconnectedParams = new URLSearchParams(params);
+      disconnectedParams.set('eventType', 'usb.disconnected');
       const [connected, disconnected] = await Promise.all([
-        apiFetch<UsbEventRow[]>(`/events?eventType=usb.connected&take=50${clientParam}`),
-        apiFetch<UsbEventRow[]>(`/events?eventType=usb.disconnected&take=50${clientParam}`),
+        apiFetch<UsbEventRow[]>(`/events?${connectedParams}`),
+        apiFetch<UsbEventRow[]>(`/events?${disconnectedParams}`),
       ]);
       setEvents(
         [...connected, ...disconnected].sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()),
@@ -61,11 +70,21 @@ export default function UsbPage() {
     const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
+  }, [clientId, deviceId]);
 
   return (
     <div>
       <PageHeader title={t('usb.title')} subtitle={t('usb.subtitle')} meta={t('common.refreshEvery', { seconds: 15 })} />
+
+      <div className="mb-4">
+        <select className="input w-auto" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
+          <option value="">{t('common.allDevices')}</option>
+          {devices.map((d) => (
+            <option key={d.id} value={d.id}>{d.hostname ?? d.id.slice(0, 8)}</option>
+          ))}
+        </select>
+      </div>
+
       <ErrorBanner message={error} />
 
       <div className="table-wrap">

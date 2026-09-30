@@ -21,16 +21,21 @@ interface PrinterEventRow {
 
 export default function PrintersPage() {
   const { t } = useI18n();
-  const { nameOf } = useDevices();
+  const { devices, nameOf } = useDevices();
   const { clientId } = useClientFilter();
+  const [deviceId, setDeviceId] = useState('');
   const [events, setEvents] = useState<PrinterEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => setDeviceId(''), [clientId]);
+
   async function load() {
     try {
-      const clientParam = clientId ? `&clientId=${clientId}` : '';
-      setEvents(await apiFetch<PrinterEventRow[]>(`/events?eventType=printer.job&take=100${clientParam}`));
+      const params = new URLSearchParams({ eventType: 'printer.job', take: '100' });
+      if (clientId) params.set('clientId', clientId);
+      if (deviceId) params.set('deviceId', deviceId);
+      setEvents(await apiFetch<PrinterEventRow[]>(`/events?${params}`));
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
@@ -44,11 +49,21 @@ export default function PrintersPage() {
     const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
+  }, [clientId, deviceId]);
 
   return (
     <div>
       <PageHeader title={t('printers.title')} subtitle={t('printers.subtitle')} meta={t('common.refreshEvery', { seconds: 15 })} />
+
+      <div className="mb-4">
+        <select className="input w-auto" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
+          <option value="">{t('common.allDevices')}</option>
+          {devices.map((d) => (
+            <option key={d.id} value={d.id}>{d.hostname ?? d.id.slice(0, 8)}</option>
+          ))}
+        </select>
+      </div>
+
       <ErrorBanner message={error} />
 
       <div className="table-wrap">

@@ -33,19 +33,28 @@ const ACTION_TONE: Record<string, Tone> = {
 
 export default function FilesPage() {
   const { t } = useI18n();
-  const { nameOf } = useDevices();
+  const { devices, nameOf } = useDevices();
   const { clientId } = useClientFilter();
+  const [deviceId, setDeviceId] = useState('');
   const [events, setEvents] = useState<FileEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // A device that belongs to a different client than the one now selected would just silently
+  // return zero rows, so drop it instead of leaving a stale, invalid combination selected.
+  useEffect(() => setDeviceId(''), [clientId]);
+
   async function load() {
     try {
-      const clientParam = clientId ? `&clientId=${clientId}` : '';
+      const params = new URLSearchParams({ take: '25' });
+      if (clientId) params.set('clientId', clientId);
+      if (deviceId) params.set('deviceId', deviceId);
       const [created, modified, renamed, deleted] = await Promise.all(
-        ['file.created', 'file.modified', 'file.renamed', 'file.deleted'].map((eventType) =>
-          apiFetch<FileEventRow[]>(`/events?eventType=${eventType}&take=25${clientParam}`),
-        ),
+        ['file.created', 'file.modified', 'file.renamed', 'file.deleted'].map((eventType) => {
+          const p = new URLSearchParams(params);
+          p.set('eventType', eventType);
+          return apiFetch<FileEventRow[]>(`/events?${p}`);
+        }),
       );
       setEvents(
         [...created, ...modified, ...renamed, ...deleted].sort(
@@ -65,7 +74,7 @@ export default function FilesPage() {
     const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
+  }, [clientId, deviceId]);
 
   return (
     <div>
@@ -74,6 +83,16 @@ export default function FilesPage() {
         subtitle={t('files.subtitle')}
         meta={t('common.refreshEvery', { seconds: 15 })}
       />
+
+      <div className="mb-4">
+        <select className="input w-auto" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
+          <option value="">{t('common.allDevices')}</option>
+          {devices.map((d) => (
+            <option key={d.id} value={d.id}>{d.hostname ?? d.id.slice(0, 8)}</option>
+          ))}
+        </select>
+      </div>
+
       <ErrorBanner message={error} />
 
       <div className="table-wrap">

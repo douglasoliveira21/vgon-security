@@ -123,6 +123,7 @@ export const pt: Record<TranslationKey, string> = {
   'devices.online': 'Online',
   'devices.attention': 'Precisam de atenção',
   'devices.addDevice': 'Adicionar dispositivo',
+  'devices.search': 'Buscar pelo nome do dispositivo...',
   'devices.token.button': 'Gerar token de instalação',
   'devices.token.title': 'Token de instalação (exibido uma única vez)',
   'devices.token.expires': 'Expira em {date}',

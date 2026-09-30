@@ -150,6 +150,7 @@ export default function ScreenshotsPage() {
   const { t } = useI18n();
   const { clientId } = useClientFilter();
   const [rows, setRows] = useState<LatestRow[]>([]);
+  const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<{ deviceId: string; name: string } | null>(null);
@@ -174,16 +175,31 @@ export default function ScreenshotsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
+  const visibleRows = search.trim()
+    ? rows.filter((r) => (r.hostname ?? r.deviceId).toLowerCase().includes(search.trim().toLowerCase()))
+    : rows;
+
   return (
     <div>
       <PageHeader title={t('screenshots.title')} subtitle={t('screenshots.subtitle')} meta={t('common.refreshEvery', { seconds: 30 })} />
+
+      <div className="mb-4 relative w-full sm:w-64">
+        <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          className="input pl-9"
+          placeholder={t('devices.search')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
       <ErrorBanner message={error} />
 
       {loading && <p className="text-sm text-slate-400">{t('common.loading')}</p>}
-      {!loading && rows.length === 0 && <p className="text-sm text-slate-400">{t('screenshots.empty')}</p>}
+      {!loading && visibleRows.length === 0 && <p className="text-sm text-slate-400">{t('screenshots.empty')}</p>}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {rows.map((r) => (
+        {visibleRows.map((r) => (
           <DeviceCard
             key={r.deviceId}
             row={r}

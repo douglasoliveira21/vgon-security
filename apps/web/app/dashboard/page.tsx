@@ -39,6 +39,7 @@ export default function DashboardPage() {
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [viewingScreen, setViewingScreen] = useState<{ id: string; name: string } | null>(null);
+  const [search, setSearch] = useState('');
 
   async function loadDevices() {
     try {
@@ -81,7 +82,9 @@ export default function DashboardPage() {
     }
   }
 
-  const visibleDevices = devices;
+  const visibleDevices = search.trim()
+    ? devices.filter((d) => (d.hostname ?? '').toLowerCase().includes(search.trim().toLowerCase()))
+    : devices;
 
   async function runAction(deviceId: string) {
     const type = selectedAction[deviceId] ?? ACTION_TYPES[0];
@@ -141,6 +144,16 @@ export default function DashboardPage() {
         <StatCard label={t('devices.total')} value={visibleDevices.length} icon="devices" />
         <StatCard label={t('devices.online')} value={online} icon="activity" tone="green" />
         <StatCard label={t('devices.attention')} value={attention} icon="alert" tone={attention ? 'amber' : 'slate'} />
+      </div>
+
+      <div className="mb-4 relative w-full sm:w-72">
+        <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          className="input pl-9"
+          placeholder={t('devices.search')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {newToken && (

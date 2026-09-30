@@ -20,18 +20,22 @@ interface SoftwareRow {
 
 export default function SoftwarePage() {
   const { t, formatDateTime } = useI18n();
-  const { nameOf } = useDevices();
+  const { devices, nameOf } = useDevices();
   const { clientId } = useClientFilter();
+  const [deviceId, setDeviceId] = useState('');
   const [items, setItems] = useState<SoftwareRow[]>([]);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => setDeviceId(''), [clientId]);
 
   async function load(name?: string) {
     try {
       const params = new URLSearchParams();
       if (name) params.set('name', name);
       if (clientId) params.set('clientId', clientId);
+      if (deviceId) params.set('deviceId', deviceId);
       setItems(await apiFetch<SoftwareRow[]>(`/software?${params}`));
       setError(null);
     } catch (err) {
@@ -42,9 +46,9 @@ export default function SoftwarePage() {
   }
 
   useEffect(() => {
-    load();
+    load(search || undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
+  }, [clientId, deviceId]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -72,6 +76,16 @@ export default function SoftwarePage() {
           </form>
         }
       />
+
+      <div className="mb-4">
+        <select className="input w-auto" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
+          <option value="">{t('common.allDevices')}</option>
+          {devices.map((d) => (
+            <option key={d.id} value={d.id}>{d.hostname ?? d.id.slice(0, 8)}</option>
+          ))}
+        </select>
+      </div>
+
       <ErrorBanner message={error} />
 
       <div className="table-wrap">

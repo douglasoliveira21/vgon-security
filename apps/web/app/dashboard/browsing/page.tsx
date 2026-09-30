@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useDevices } from '@/lib/useDevices';
@@ -130,16 +129,7 @@ export default function BrowsingPage() {
             {loading && <LoadingRow colSpan={4} />}
             {!loading && visible.length === 0 && (
               <EmptyRow colSpan={4} icon="globe">
-                {events.length === 0 ? (
-                  <>
-                    {t('browsing.empty')}{' '}
-                    <Link href="/dashboard/policies" className="font-medium text-brand hover:underline">
-                      {t('browsing.policiesLink')}
-                    </Link>
-                  </>
-                ) : (
-                  t('browsing.noMatch')
-                )}
+                {events.length === 0 ? t('browsing.empty') : t('browsing.noMatch')}
               </EmptyRow>
             )}
             {visible.map((e) => (
