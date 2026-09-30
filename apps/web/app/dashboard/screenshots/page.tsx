@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Icon } from '@/lib/icons';
@@ -58,6 +58,8 @@ function HistoryModal({ deviceId, deviceName, onClose }: { deviceId: string; dev
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [selected, setSelected] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     apiFetch<HistoryRow[]>(`/devices/${deviceId}/screenshots?take=30`)
@@ -65,22 +67,62 @@ function HistoryModal({ deviceId, deviceName, onClose }: { deviceId: string; dev
       .finally(() => setLoading(false));
   }, [deviceId]);
 
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await containerRef.current?.requestFullscreen();
+      }
+    } catch {
+      /* Fullscreen API blocked (e.g. no user gesture context, or unsupported) — non-fatal */
+    }
+  }
+
   const current = rows[selected];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4">
-      <div className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+      <div
+        ref={containerRef}
+        className={`flex w-full flex-col overflow-hidden bg-white shadow-2xl ${
+          isFullscreen ? 'h-full max-w-none' : 'max-h-full max-w-4xl rounded-xl'
+        }`}
+      >
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <span className="font-medium text-slate-800">{t('screenshots.history', { device: deviceName })}</span>
-          <button onClick={onClose} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100" aria-label={t('common.close')}>
-            <Icon name="x" className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {current && (
+              <button
+                onClick={toggleFullscreen}
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
+                aria-label={t(isFullscreen ? 'liveScreen.exitFullscreen' : 'liveScreen.fullscreen')}
+                title={t(isFullscreen ? 'liveScreen.exitFullscreen' : 'liveScreen.fullscreen')}
+              >
+                <Icon name={isFullscreen ? 'compress' : 'expand'} className="h-4 w-4" />
+              </button>
+            )}
+            <button onClick={onClose} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100" aria-label={t('common.close')}>
+              <Icon name="x" className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-        <div className="flex min-h-[40vh] flex-1 items-center justify-center bg-black">
+        <div className={`flex flex-1 items-center justify-center bg-black ${isFullscreen ? '' : 'min-h-[40vh]'}`}>
           {loading && <p className="text-sm text-slate-400">{t('common.loading')}</p>}
           {!loading && current && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={`data:image/jpeg;base64,${current.imageBase64}`} alt="" className="max-h-[65vh] w-full object-contain" />
+            <img
+              src={`data:image/jpeg;base64,${current.imageBase64}`}
+              alt=""
+              onDoubleClick={toggleFullscreen}
+              className={`w-full cursor-zoom-in object-contain ${isFullscreen ? 'h-full' : 'max-h-[65vh]'}`}
+            />
           )}
           {!loading && rows.length === 0 && <p className="text-sm text-slate-400">{t('screenshots.noneYet')}</p>}
         </div>
