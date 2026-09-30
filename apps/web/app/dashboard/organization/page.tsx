@@ -47,6 +47,17 @@ export default function OrganizationPage() {
   const [groupClientId, setGroupClientId] = useState('');
   const [groupSubmitting, setGroupSubmitting] = useState(false);
 
+  const [editingSiteId, setEditingSiteId] = useState<string | null>(null);
+  const [editSiteName, setEditSiteName] = useState('');
+  const [editSiteClientId, setEditSiteClientId] = useState('');
+  const [savingSite, setSavingSite] = useState(false);
+
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editGroupName, setEditGroupName] = useState('');
+  const [editGroupSiteId, setEditGroupSiteId] = useState('');
+  const [editGroupClientId, setEditGroupClientId] = useState('');
+  const [savingGroup, setSavingGroup] = useState(false);
+
   async function load() {
     try {
       const [c, s, g] = await Promise.all([
@@ -131,6 +142,57 @@ export default function OrganizationPage() {
     }
   }
 
+  function startEditSite(site: Site) {
+    setEditingSiteId(site.id);
+    setEditSiteName(site.name);
+    setEditSiteClientId(site.clientId ?? '');
+  }
+
+  async function saveSite(siteId: string) {
+    setError(null);
+    setSavingSite(true);
+    try {
+      await apiFetch(`/sites/${siteId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: editSiteName, clientId: editSiteClientId || undefined }),
+      });
+      setEditingSiteId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
+    } finally {
+      setSavingSite(false);
+    }
+  }
+
+  function startEditGroup(group: Group) {
+    setEditingGroupId(group.id);
+    setEditGroupName(group.name);
+    setEditGroupSiteId(group.siteId ?? '');
+    setEditGroupClientId(group.clientId ?? '');
+  }
+
+  async function saveGroup(groupId: string) {
+    setError(null);
+    setSavingGroup(true);
+    try {
+      await apiFetch(`/groups/${groupId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: editGroupName,
+          siteId: editGroupSiteId,
+          clientId: editGroupSiteId ? undefined : editGroupClientId || undefined,
+        }),
+      });
+      setEditingGroupId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
+    } finally {
+      setSavingGroup(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader title={t('org.title')} subtitle={t('org.subtitle')} />
@@ -181,19 +243,51 @@ export default function OrganizationPage() {
                     {t('org.sitesEmpty')}
                   </EmptyRow>
                 )}
-                {sites.map((s) => (
-                  <tr key={s.id} className="align-top hover:bg-slate-50">
-                    <td className="font-medium text-slate-900">{s.name}</td>
-                    <td className="text-slate-600">{s.client?.name ?? '—'}</td>
-                    <td className="text-slate-600">{t('org.devices', { n: s._count.devices })}</td>
-                    <td className="text-slate-600">{t('org.groupsCount', { n: s._count.groups })}</td>
-                    <td className="text-right">
-                      <button onClick={() => removeSite(s)} className="text-sm font-medium text-red-600 hover:underline">
-                        {t('common.remove')}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {sites.map((s) =>
+                  editingSiteId === s.id ? (
+                    <tr key={s.id} className="align-top bg-slate-50">
+                      <td colSpan={5} className="p-3">
+                        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+                          <div>
+                            <label className="label">{t('org.siteName')}</label>
+                            <input value={editSiteName} onChange={(e) => setEditSiteName(e.target.value)} className="input" />
+                          </div>
+                          <div>
+                            <label className="label">{t('clients.title')}</label>
+                            <select value={editSiteClientId} onChange={(e) => setEditSiteClientId(e.target.value)} className="input">
+                              {clients.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <button onClick={() => saveSite(s.id)} disabled={savingSite} className="btn-primary btn-sm">
+                            {savingSite ? t('common.saving') : t('common.save')}
+                          </button>
+                          <button onClick={() => setEditingSiteId(null)} className="btn-secondary btn-sm">
+                            {t('common.cancel')}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={s.id} className="align-top hover:bg-slate-50">
+                      <td className="font-medium text-slate-900">{s.name}</td>
+                      <td className="text-slate-600">{s.client?.name ?? '—'}</td>
+                      <td className="text-slate-600">{t('org.devices', { n: s._count.devices })}</td>
+                      <td className="text-slate-600">{t('org.groupsCount', { n: s._count.groups })}</td>
+                      <td className="whitespace-nowrap text-right">
+                        <button onClick={() => startEditSite(s)} className="mr-3 text-sm font-medium text-brand hover:underline">
+                          {t('common.edit')}
+                        </button>
+                        <button onClick={() => removeSite(s)} className="text-sm font-medium text-red-600 hover:underline">
+                          {t('common.remove')}
+                        </button>
+                      </td>
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>
@@ -257,19 +351,67 @@ export default function OrganizationPage() {
                     {t('org.groupsEmpty')}
                   </EmptyRow>
                 )}
-                {groups.map((g) => (
-                  <tr key={g.id} className="align-top hover:bg-slate-50">
-                    <td className="font-medium text-slate-900">{g.name}</td>
-                    <td className="text-slate-600">{g.client?.name ?? '—'}</td>
-                    <td className="text-slate-600">{g.site?.name ?? t('org.noSite')}</td>
-                    <td className="text-slate-600">{t('org.devices', { n: g._count.devices })}</td>
-                    <td className="text-right">
-                      <button onClick={() => removeGroup(g)} className="text-sm font-medium text-red-600 hover:underline">
-                        {t('common.remove')}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {groups.map((g) =>
+                  editingGroupId === g.id ? (
+                    <tr key={g.id} className="align-top bg-slate-50">
+                      <td colSpan={5} className="p-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="label">{t('org.groupName')}</label>
+                            <input value={editGroupName} onChange={(e) => setEditGroupName(e.target.value)} className="input" />
+                          </div>
+                          <div>
+                            <label className="label">{t('org.locations')}</label>
+                            <select value={editGroupSiteId} onChange={(e) => setEditGroupSiteId(e.target.value)} className="input">
+                              <option value="">{t('org.noSite')}</option>
+                              {sites.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {!editGroupSiteId && (
+                            <div>
+                              <label className="label">{t('clients.title')}</label>
+                              <select value={editGroupClientId} onChange={(e) => setEditGroupClientId(e.target.value)} className="input">
+                                <option value="">{t('org.selectClient')}</option>
+                                {clients.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3 flex justify-end gap-2">
+                          <button onClick={() => setEditingGroupId(null)} className="btn-secondary btn-sm">
+                            {t('common.cancel')}
+                          </button>
+                          <button onClick={() => saveGroup(g.id)} disabled={savingGroup} className="btn-primary btn-sm">
+                            {savingGroup ? t('common.saving') : t('common.save')}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={g.id} className="align-top hover:bg-slate-50">
+                      <td className="font-medium text-slate-900">{g.name}</td>
+                      <td className="text-slate-600">{g.client?.name ?? '—'}</td>
+                      <td className="text-slate-600">{g.site?.name ?? t('org.noSite')}</td>
+                      <td className="text-slate-600">{t('org.devices', { n: g._count.devices })}</td>
+                      <td className="whitespace-nowrap text-right">
+                        <button onClick={() => startEditGroup(g)} className="mr-3 text-sm font-medium text-brand hover:underline">
+                          {t('common.edit')}
+                        </button>
+                        <button onClick={() => removeGroup(g)} className="text-sm font-medium text-red-600 hover:underline">
+                          {t('common.remove')}
+                        </button>
+                      </td>
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>

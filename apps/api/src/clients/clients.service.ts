@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { clientSelfScopeWhere } from '../common/client-scope.util';
 import { CreateClientDto } from './dto/create-client.dto';
+import { UpdateClientDto } from './dto/update-client.dto';
 
 @Injectable()
 export class ClientsService {
@@ -47,6 +48,36 @@ export class ClientsService {
     });
 
     return client;
+  }
+
+  async update(actor: AuthenticatedUser, clientId: string, dto: UpdateClientDto) {
+    if (actor.clientId) {
+      throw new ForbiddenException('Only users with full-tenant access can manage clients');
+    }
+
+    const existing = await this.prisma.client.findFirst({ where: { id: clientId, tenantId: actor.tenantId } });
+    if (!existing) {
+      throw new NotFoundException('Client not found');
+    }
+
+    if (dto.name !== existing.name) {
+      const nameTaken = await this.prisma.client.findFirst({ where: { tenantId: actor.tenantId, name: dto.name } });
+      if (nameTaken) throw new ConflictException('A client with this name already exists');
+    }
+
+    const updated = await this.prisma.client.update({ where: { id: clientId }, data: { name: dto.name } });
+
+    await this.audit.log({
+      tenantId: actor.tenantId,
+      actorId: actor.userId,
+      actorEmail: actor.email,
+      action: 'client.updated',
+      resource: `client:${clientId}`,
+      result: 'SUCCESS',
+      metadata: { name: updated.name },
+    });
+
+    return updated;
   }
 
   async remove(actor: AuthenticatedUser, clientId: string) {

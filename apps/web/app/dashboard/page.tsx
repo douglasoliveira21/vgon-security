@@ -70,6 +70,17 @@ export default function DashboardPage() {
     }
   }
 
+  async function removeDevice(device: Device) {
+    if (!window.confirm(t('devices.removeConfirm', { name: device.hostname ?? device.id.slice(0, 8) }))) return;
+    setError(null);
+    try {
+      await apiFetch(`/devices/${device.id}`, { method: 'DELETE' });
+      await loadDevices();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
+    }
+  }
+
   const visibleDevices = devices;
 
   async function runAction(deviceId: string) {
@@ -213,10 +224,18 @@ export default function DashboardPage() {
                     </button>
                     <button
                       onClick={() => setViewingScreen({ id: d.id, name: d.hostname ?? d.id.slice(0, 8) })}
+                      disabled={d.status !== 'ONLINE'}
                       className="btn-secondary btn-sm"
-                      title={t('devices.viewScreen')}
+                      title={d.status !== 'ONLINE' ? t('devices.viewScreen.offline') : t('devices.viewScreen')}
                     >
                       <Icon name="eye" className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => removeDevice(d)}
+                      className="btn-secondary btn-sm text-red-600 hover:bg-red-50"
+                      title={t('devices.remove')}
+                    >
+                      <Icon name="trash" className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </td>

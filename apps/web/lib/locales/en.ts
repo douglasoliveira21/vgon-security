@@ -50,6 +50,8 @@ export const en = {
   'common.details': 'Details',
   'common.close': 'Close',
   'common.remove': 'Remove',
+  'common.edit': 'Edit',
+  'common.cancel': 'Cancel',
   'common.save': 'Save',
   'common.saving': 'Saving...',
   'common.error.load': 'Could not load the data. {message}',
@@ -141,7 +143,10 @@ export const en = {
   'devices.error.action': 'Could not queue the action.',
   'devices.error.token': 'Could not create the install token.',
   'devices.viewScreen': 'View screen',
+  'devices.viewScreen.offline': 'Device is offline — screen view is unavailable',
   'devices.error.screenView': 'Could not start the screen view session.',
+  'devices.remove': 'Remove device',
+  'devices.removeConfirm': 'Permanently remove "{name}"? If the Agent is still installed and running on that machine, it will need a new install token to reappear.',
 
   // Live screen view (view-only — no mouse/keyboard input is ever sent to the device)
   'liveScreen.title': 'Screen — {device}',
@@ -328,6 +333,12 @@ export const en = {
   'security.resolving': 'Resolving...',
   'security.emptyOpen': 'No open findings. Everything looks good.',
   'security.emptyResolved': 'No resolved findings yet.',
+
+  // Notifications (Security Center findings, surfaced from the header bell)
+  'notifications.title': 'Notifications',
+  'notifications.openCount': '{n} open',
+  'notifications.empty': 'No open findings. Everything looks good.',
+  'notifications.viewAll': 'View full Security Center',
 
   // Policies
   'policies.title': 'Policies',

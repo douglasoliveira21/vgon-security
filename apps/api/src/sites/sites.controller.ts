@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { Permission } from '@vgon/shared';
 import { SitesService } from './sites.service';
 import { CreateSiteDto } from './dto/create-site.dto';
+import { UpdateSiteDto } from './dto/update-site.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
@@ -22,6 +23,12 @@ export class SitesController {
   @RequirePermissions(Permission.DEVICES_MANAGE)
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateSiteDto) {
     return this.sitesService.create(user, dto);
+  }
+
+  @Patch(':id')
+  @RequirePermissions(Permission.DEVICES_MANAGE)
+  update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateSiteDto) {
+    return this.sitesService.update(user, id, dto);
   }
 
   @Delete(':id')

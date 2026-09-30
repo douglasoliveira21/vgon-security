@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Permission } from '@vgon/shared';
 import { DevicesService } from './devices.service';
 import { UpdateDeviceDto } from './dto/update-device.dto';
@@ -34,5 +34,11 @@ export class DevicesController {
   @RequirePermissions(Permission.DEVICES_MANAGE)
   update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateDeviceDto) {
     return this.devicesService.update(user, id, dto);
+  }
+
+  @Delete(':id')
+  @RequirePermissions(Permission.DEVICES_MANAGE)
+  remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.devicesService.remove(user, id);
   }
 }

@@ -20,6 +20,10 @@ export default function ClientsPage() {
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [saving, setSaving] = useState(false);
+
   async function load() {
     try {
       setClients(await apiFetch<Client[]>('/clients'));
@@ -61,6 +65,25 @@ export default function ClientsPage() {
     }
   }
 
+  function startEdit(client: Client) {
+    setEditingId(client.id);
+    setEditName(client.name);
+  }
+
+  async function saveEdit(clientId: string) {
+    setError(null);
+    setSaving(true);
+    try {
+      await apiFetch(`/clients/${clientId}`, { method: 'PATCH', body: JSON.stringify({ name: editName }) });
+      setEditingId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('common.error.load', { message: '' }));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader title={t('clients.title')} subtitle={t('clients.subtitle')} />
@@ -95,19 +118,41 @@ export default function ClientsPage() {
                 {t('clients.empty')}
               </EmptyRow>
             )}
-            {clients.map((c) => (
-              <tr key={c.id} className="align-top hover:bg-slate-50">
-                <td className="font-medium text-slate-900">{c.name}</td>
-                <td className="text-slate-600">{c._count.sites}</td>
-                <td className="text-slate-600">{c._count.devices}</td>
-                <td className="text-slate-600">{c._count.users}</td>
-                <td className="text-right">
-                  <button onClick={() => removeClient(c)} className="text-sm font-medium text-red-600 hover:underline">
-                    {t('common.remove')}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {clients.map((c) =>
+              editingId === c.id ? (
+                <tr key={c.id} className="align-top bg-slate-50">
+                  <td colSpan={5} className="p-3">
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1">
+                        <label className="label">{t('clients.name')}</label>
+                        <input value={editName} onChange={(e) => setEditName(e.target.value)} className="input" />
+                      </div>
+                      <button onClick={() => setEditingId(null)} className="btn-secondary btn-sm">
+                        {t('common.cancel')}
+                      </button>
+                      <button onClick={() => saveEdit(c.id)} disabled={saving} className="btn-primary btn-sm">
+                        {saving ? t('common.saving') : t('common.save')}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                <tr key={c.id} className="align-top hover:bg-slate-50">
+                  <td className="font-medium text-slate-900">{c.name}</td>
+                  <td className="text-slate-600">{c._count.sites}</td>
+                  <td className="text-slate-600">{c._count.devices}</td>
+                  <td className="text-slate-600">{c._count.users}</td>
+                  <td className="whitespace-nowrap text-right">
+                    <button onClick={() => startEdit(c)} className="mr-3 text-sm font-medium text-brand hover:underline">
+                      {t('common.edit')}
+                    </button>
+                    <button onClick={() => removeClient(c)} className="text-sm font-medium text-red-600 hover:underline">
+                      {t('common.remove')}
+                    </button>
+                  </td>
+                </tr>
+              ),
+            )}
           </tbody>
         </table>
       </div>

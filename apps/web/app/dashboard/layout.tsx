@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { clearSession, getSessionUser, getToken, SessionUser } from '@/lib/api';
@@ -9,6 +9,7 @@ import { TranslationKey } from '@/lib/locales/en';
 import { LanguageSwitch } from '@/lib/LanguageSwitch';
 import { Icon, IconName } from '@/lib/icons';
 import { ClientFilterProvider, ClientFilterSelect } from '@/lib/ClientFilter';
+import { NotificationBell } from '@/lib/NotificationBell';
 
 interface NavItem {
   href: string;
@@ -43,24 +44,23 @@ const NAV: Array<{ group: TranslationKey; items: NavItem[] }> = [
     ],
   },
   {
-    group: 'nav.group.protection',
-    items: [
-      { href: '/dashboard/security', label: 'nav.security', icon: 'shield' },
-      { href: '/dashboard/policies', label: 'nav.policies', icon: 'sliders' },
-    ],
-  },
-  {
     group: 'nav.group.admin',
     items: [
       { href: '/dashboard/clients', label: 'nav.clients', icon: 'briefcase' },
       { href: '/dashboard/organization', label: 'nav.organization', icon: 'mapPin' },
       { href: '/dashboard/users', label: 'nav.users', icon: 'users' },
-      { href: '/dashboard/releases', label: 'nav.releases', icon: 'download' },
     ],
   },
 ];
 
-const ALL_ITEMS = NAV.flatMap((g) => g.items);
+// Reachable from the header's notification bell instead of the sidebar — Security Center is
+// notification-driven now, not a standing menu item — but the route/page itself still exists.
+const HIDDEN_ROUTES: NavItem[] = [
+  { href: '/dashboard/security', label: 'nav.security', icon: 'shield' },
+  { href: '/dashboard/releases', label: 'nav.releases', icon: 'download' },
+];
+
+const ALL_ITEMS = [...NAV.flatMap((g) => g.items), ...HIDDEN_ROUTES];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -68,6 +68,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { t } = useI18n();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!getToken()) {
@@ -78,7 +80,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [router]);
 
   // Close the mobile drawer after navigating.
-  useEffect(() => setMenuOpen(false), [pathname]);
+  useEffect(() => {
+    setMenuOpen(false);
+    setUserMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setUserMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   function logout() {
     clearSession();
@@ -127,25 +140,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </nav>
 
       {user && (
-        <div className="shrink-0 border-t border-white/10 p-3">
-          <Link
-            href="/dashboard/profile"
-            className="mb-2 flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5"
+        <div className="relative shrink-0 border-t border-white/10 p-3" ref={userMenuRef}>
+          {userMenuOpen && (
+            <div className="absolute bottom-full left-3 right-3 mb-1 overflow-hidden rounded-lg border border-white/10 bg-slate-800 shadow-xl">
+              <Link
+                href="/dashboard/profile"
+                className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <Icon name="user" className="h-[18px] w-[18px] text-slate-400" />
+                {t('nav.profile')}
+              </Link>
+              <Link
+                href="/dashboard/releases"
+                className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <Icon name="download" className="h-[18px] w-[18px] text-slate-400" />
+                {t('nav.releases')}
+              </Link>
+              <button
+                onClick={logout}
+                className="flex w-full items-center gap-3 border-t border-white/10 px-3 py-2.5 text-sm text-slate-200 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <Icon name="logout" className="h-[18px] w-[18px] text-slate-400" />
+                {t('user.signOut')}
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setUserMenuOpen((v) => !v)}
+            className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5"
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-semibold uppercase text-white">
               {user.email.charAt(0)}
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 text-left">
               <div className="truncate text-sm text-white">{user.email}</div>
               <div className="text-xs text-slate-400">{user.role}</div>
             </div>
-          </Link>
-          <button
-            onClick={logout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-          >
-            <Icon name="logout" className="h-[18px] w-[18px] text-slate-400" />
-            {t('user.signOut')}
+            <Icon name="chevron" className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${userMenuOpen ? '-rotate-90' : 'rotate-90'}`} />
           </button>
         </div>
       )}
@@ -189,6 +221,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <div className="flex items-center gap-3">
             <ClientFilterSelect />
+            <NotificationBell />
             <LanguageSwitch />
           </div>
         </header>

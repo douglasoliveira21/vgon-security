@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { Permission } from '@vgon/shared';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
+import { UpdateClientDto } from './dto/update-client.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
@@ -22,6 +23,12 @@ export class ClientsController {
   @RequirePermissions(Permission.DEVICES_MANAGE)
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateClientDto) {
     return this.clientsService.create(user, dto);
+  }
+
+  @Patch(':id')
+  @RequirePermissions(Permission.DEVICES_MANAGE)
+  update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateClientDto) {
+    return this.clientsService.update(user, id, dto);
   }
 
   @Delete(':id')

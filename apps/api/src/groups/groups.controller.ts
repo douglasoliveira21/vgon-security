@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { Permission } from '@vgon/shared';
 import { GroupsService } from './groups.service';
 import { CreateGroupDto } from './dto/create-group.dto';
+import { UpdateGroupDto } from './dto/update-group.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
@@ -22,6 +23,12 @@ export class GroupsController {
   @RequirePermissions(Permission.DEVICES_MANAGE)
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateGroupDto) {
     return this.groupsService.create(user, dto);
+  }
+
+  @Patch(':id')
+  @RequirePermissions(Permission.DEVICES_MANAGE)
+  update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateGroupDto) {
+    return this.groupsService.update(user, id, dto);
   }
 
   @Delete(':id')

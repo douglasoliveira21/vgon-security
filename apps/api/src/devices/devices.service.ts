@@ -102,4 +102,30 @@ export class DevicesService {
 
     return { ...updated, status: computeLiveStatus(updated.lastSeenAt, updated.status as DeviceStatus) };
   }
+
+  // Permanent removal (distinct from revoke(), which just blocks it) — events, credentials,
+  // findings etc. cascade-delete with it. If the physical machine's Agent is genuinely still
+  // running, this doesn't "break" anything special: its credential is gone too, so its next
+  // request gets a plain 401 (see AgentJwtStrategy) and it simply needs a fresh provisioning
+  // token to re-enroll, the same normal flow as installing on any new machine.
+  async remove(actor: AuthenticatedUser, deviceId: string) {
+    const device = await this.prisma.device.findFirst({
+      where: { id: deviceId, tenantId: actor.tenantId, ...clientScopeWhere(actor) },
+    });
+    if (!device) throw new NotFoundException('Device not found');
+
+    await this.prisma.device.delete({ where: { id: deviceId } });
+
+    await this.audit.log({
+      tenantId: actor.tenantId,
+      actorId: actor.userId,
+      actorEmail: actor.email,
+      action: 'device.deleted',
+      resource: `device:${deviceId}`,
+      result: 'SUCCESS',
+      metadata: { hostname: device.hostname },
+    });
+
+    return { id: deviceId };
+  }
 }

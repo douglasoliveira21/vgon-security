@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { clientScopeWhere } from '../common/client-scope.util';
 import { CreateGroupDto } from './dto/create-group.dto';
+import { UpdateGroupDto } from './dto/update-group.dto';
 
 @Injectable()
 export class GroupsService {
@@ -64,6 +65,51 @@ export class GroupsService {
     });
 
     return group;
+  }
+
+  async update(actor: AuthenticatedUser, groupId: string, dto: UpdateGroupDto) {
+    const existing = await this.prisma.group.findFirst({
+      where: { id: groupId, tenantId: actor.tenantId, ...clientScopeWhere(actor) },
+    });
+    if (!existing) {
+      throw new NotFoundException('Group not found');
+    }
+
+    if (actor.clientId && dto.clientId && dto.clientId !== actor.clientId) {
+      throw new ForbiddenException('Cannot move a group to a different client');
+    }
+
+    let clientId = dto.clientId;
+    if (dto.siteId) {
+      const site = await this.prisma.site.findFirst({ where: { id: dto.siteId, tenantId: actor.tenantId } });
+      if (!site) throw new NotFoundException('Location not found');
+      if (actor.clientId && site.clientId !== actor.clientId) {
+        throw new ForbiddenException('Cannot move a group to a location from a different client');
+      }
+      clientId = clientId ?? site.clientId ?? undefined;
+    }
+
+    if (dto.name && dto.name !== existing.name) {
+      const nameTaken = await this.prisma.group.findFirst({ where: { tenantId: actor.tenantId, name: dto.name } });
+      if (nameTaken) throw new ConflictException('A group with this name already exists');
+    }
+
+    const updated = await this.prisma.group.update({
+      where: { id: groupId },
+      data: { name: dto.name, siteId: dto.siteId === '' ? null : dto.siteId, clientId },
+    });
+
+    await this.audit.log({
+      tenantId: actor.tenantId,
+      actorId: actor.userId,
+      actorEmail: actor.email,
+      action: 'group.updated',
+      resource: `group:${groupId}`,
+      result: 'SUCCESS',
+      metadata: { name: updated.name, siteId: updated.siteId, clientId: updated.clientId },
+    });
+
+    return updated;
   }
 
   async remove(actor: AuthenticatedUser, groupId: string) {

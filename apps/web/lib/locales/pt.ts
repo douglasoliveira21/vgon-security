@@ -51,6 +51,8 @@ export const pt: Record<TranslationKey, string> = {
   'common.details': 'Detalhes',
   'common.close': 'Fechar',
   'common.remove': 'Remover',
+  'common.edit': 'Editar',
+  'common.cancel': 'Cancelar',
   'common.save': 'Salvar',
   'common.saving': 'Salvando...',
   'common.error.load': 'Não foi possível carregar os dados. {message}',
@@ -142,7 +144,10 @@ export const pt: Record<TranslationKey, string> = {
   'devices.error.action': 'Não foi possível enviar a ação.',
   'devices.error.token': 'Não foi possível gerar o token de instalação.',
   'devices.viewScreen': 'Ver tela',
+  'devices.viewScreen.offline': 'Dispositivo offline — visualização de tela indisponível',
   'devices.error.screenView': 'Não foi possível iniciar a visualização de tela.',
+  'devices.remove': 'Remover dispositivo',
+  'devices.removeConfirm': 'Remover "{name}" definitivamente? Se o Agente ainda estiver instalado e ativo nessa máquina, ele vai precisar de um novo token de instalação para reaparecer.',
 
   // Visualização de tela ao vivo (somente visualização — nenhuma entrada de mouse/teclado é enviada)
   'liveScreen.title': 'Tela — {device}',
@@ -329,6 +334,12 @@ export const pt: Record<TranslationKey, string> = {
   'security.resolving': 'Resolvendo...',
   'security.emptyOpen': 'Nenhum problema em aberto. Tudo certo por aqui.',
   'security.emptyResolved': 'Nenhum problema resolvido ainda.',
+
+  // Notificações (achados da Central de Segurança, exibidos no sino do cabeçalho)
+  'notifications.title': 'Notificações',
+  'notifications.openCount': '{n} em aberto',
+  'notifications.empty': 'Nenhum problema em aberto. Está tudo certo.',
+  'notifications.viewAll': 'Ver Central de Segurança completa',
 
   // Policies
   'policies.title': 'Políticas',
