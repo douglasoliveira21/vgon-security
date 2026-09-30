@@ -10,10 +10,16 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { EnableMfaDto } from './dto/enable-mfa.dto';
+import { DisableMfaDto } from './dto/disable-mfa.dto';
 import { MetricsService } from '../observability/metrics.service';
 import { EmailService } from '../common/email.service';
+import { TurnstileService } from '../common/turnstile.service';
+import { generateMfaSecret, mfaOtpauthUrl, verifyMfaToken } from '../common/mfa.util';
 import { generateOpaqueToken, hashToken } from '../common/token.util';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import * as QRCode from 'qrcode';
+import type { User } from '@prisma/client';
 
 const ACCESS_TOKEN_TTL = '15m';
 const REMEMBER_ME_TOKEN_TTL = '30d';
@@ -27,6 +33,7 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly metrics: MetricsService,
     private readonly email: EmailService,
+    private readonly turnstile: TurnstileService,
   ) {}
 
   private webOrigin(): string {
@@ -41,11 +48,11 @@ export class AuthService {
 
     const passwordHash = await argon2.hash(dto.password);
 
-    const tenant = await this.prisma.$transaction(async (tx) => {
+    const { tenant, user } = await this.prisma.$transaction(async (tx) => {
       const created = await tx.tenant.create({
         data: { name: dto.companyName, slug: dto.slug },
       });
-      await tx.user.create({
+      const createdUser = await tx.user.create({
         data: {
           tenantId: created.id,
           email: dto.ownerEmail.toLowerCase(),
@@ -54,7 +61,7 @@ export class AuthService {
           role: Role.OWNER,
         },
       });
-      return created;
+      return { tenant: created, user: createdUser };
     });
 
     await this.audit.log({
@@ -66,10 +73,19 @@ export class AuthService {
       ip,
     });
 
-    return this.login({ email: dto.ownerEmail, password: dto.password }, ip);
+    // A brand-new owner account can't have MFA enabled yet, and registering is itself proof of
+    // legitimate intent — skip login()'s captcha/MFA gate and issue the session directly.
+    return this.issueSession(user, false, ip);
   }
 
   async login(dto: LoginDto, ip?: string) {
+    if (this.turnstile.enabled) {
+      const captchaOk = await this.turnstile.verify(dto.turnstileToken, ip);
+      if (!captchaOk) {
+        throw new UnauthorizedException({ statusCode: 401, message: 'Captcha verification failed', captchaFailed: true });
+      }
+    }
+
     const email = dto.email.toLowerCase();
     const user = await this.prisma.user.findFirst({ where: { email } });
 
@@ -90,7 +106,30 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const expiresIn = dto.rememberMe ? REMEMBER_ME_TOKEN_TTL : ACCESS_TOKEN_TTL;
+    if (user.mfaEnabled) {
+      if (!dto.mfaToken) {
+        throw new UnauthorizedException({ statusCode: 401, message: 'MFA code required', mfaRequired: true });
+      }
+      if (!user.mfaSecret || !verifyMfaToken(dto.mfaToken, user.mfaSecret)) {
+        this.metrics.authenticationFailures.inc();
+        await this.audit.log({
+          tenantId: user.tenantId,
+          actorId: user.id,
+          actorEmail: user.email,
+          action: 'auth.mfa.failed',
+          resource: 'auth',
+          result: 'FAILURE',
+          ip,
+        });
+        throw new UnauthorizedException({ statusCode: 401, message: 'Invalid MFA code', mfaRequired: true });
+      }
+    }
+
+    return this.issueSession(user, dto.rememberMe, ip);
+  }
+
+  private async issueSession(user: User, rememberMe: boolean | undefined, ip?: string) {
+    const expiresIn = rememberMe ? REMEMBER_ME_TOKEN_TTL : ACCESS_TOKEN_TTL;
     const payload = { sub: user.id, tenantId: user.tenantId, email: user.email, role: user.role };
     const accessToken = this.jwt.sign(payload, {
       secret: process.env.JWT_ACCESS_SECRET ?? 'dev-web-access-secret',
@@ -217,13 +256,15 @@ export class AuthService {
       ip,
     });
 
-    return this.login({ email: token.user.email, password: dto.password }, ip);
+    // Accepting the invite (proving control of the emailed link) is itself the verification —
+    // skip login()'s captcha/MFA gate, same reasoning as registerTenant().
+    return this.issueSession(token.user, false, ip);
   }
 
   async getProfile(actor: AuthenticatedUser) {
     const user = await this.prisma.user.findUnique({
       where: { id: actor.userId },
-      select: { id: true, email: true, name: true, role: true, tenantId: true, clientId: true, createdAt: true },
+      select: { id: true, email: true, name: true, role: true, tenantId: true, clientId: true, createdAt: true, mfaEnabled: true },
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
@@ -253,7 +294,7 @@ export class AuthService {
     const updated = await this.prisma.user.update({
       where: { id: actor.userId },
       data,
-      select: { id: true, email: true, name: true, role: true, tenantId: true, clientId: true, createdAt: true },
+      select: { id: true, email: true, name: true, role: true, tenantId: true, clientId: true, createdAt: true, mfaEnabled: true },
     });
 
     await this.audit.log({
@@ -268,5 +309,70 @@ export class AuthService {
     });
 
     return updated;
+  }
+
+  // Generates a new secret and returns the QR code / manual key to scan — mfaEnabled stays false
+  // until enableMfa() confirms the user actually scanned it and can produce a valid code.
+  async setupMfa(actor: AuthenticatedUser) {
+    const user = await this.prisma.user.findUnique({ where: { id: actor.userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.mfaEnabled) throw new BadRequestException('MFA is already enabled');
+
+    const secret = generateMfaSecret();
+    await this.prisma.user.update({ where: { id: actor.userId }, data: { mfaSecret: secret } });
+
+    const otpauthUrl = mfaOtpauthUrl(user.email, secret);
+    const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
+
+    return { secret, otpauthUrl, qrCodeDataUrl };
+  }
+
+  async enableMfa(actor: AuthenticatedUser, dto: EnableMfaDto, ip?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: actor.userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.mfaEnabled) throw new BadRequestException('MFA is already enabled');
+    if (!user.mfaSecret) throw new BadRequestException('Start MFA setup first');
+
+    if (!verifyMfaToken(dto.token, user.mfaSecret)) {
+      throw new UnauthorizedException('Invalid verification code');
+    }
+
+    await this.prisma.user.update({ where: { id: actor.userId }, data: { mfaEnabled: true } });
+
+    await this.audit.log({
+      tenantId: actor.tenantId,
+      actorId: actor.userId,
+      actorEmail: actor.email,
+      action: 'auth.mfa.enabled',
+      resource: `user:${actor.userId}`,
+      result: 'SUCCESS',
+      ip,
+    });
+
+    return { mfaEnabled: true };
+  }
+
+  async disableMfa(actor: AuthenticatedUser, dto: DisableMfaDto, ip?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: actor.userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const passwordValid = user.passwordHash ? await argon2.verify(user.passwordHash, dto.password) : false;
+    if (!passwordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    await this.prisma.user.update({ where: { id: actor.userId }, data: { mfaEnabled: false, mfaSecret: null } });
+
+    await this.audit.log({
+      tenantId: actor.tenantId,
+      actorId: actor.userId,
+      actorEmail: actor.email,
+      action: 'auth.mfa.disabled',
+      resource: `user:${actor.userId}`,
+      result: 'SUCCESS',
+      ip,
+    });
+
+    return { mfaEnabled: false };
   }
 }

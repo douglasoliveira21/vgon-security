@@ -6,9 +6,10 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { MetricsModule } from '../observability/metrics.module';
 import { EmailModule } from '../common/email.module';
+import { TurnstileModule } from '../common/turnstile.module';
 
 @Module({
-  imports: [PassportModule, JwtModule.register({}), MetricsModule, EmailModule],
+  imports: [PassportModule, JwtModule.register({}), MetricsModule, EmailModule, TurnstileModule],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
 })

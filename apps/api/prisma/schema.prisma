@@ -118,6 +118,10 @@ model User {
   name         String
   role         Role     @default(VIEWER)
   isActive     Boolean  @default(true)
+  // TOTP-based MFA (RFC 6238, e.g. Google Authenticator/Authy). mfaSecret is only ever set while
+  // mfaEnabled is true or a setup is pending confirmation — see AuthService.setupMfa/enableMfa.
+  mfaEnabled   Boolean  @default(false)
+  mfaSecret    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

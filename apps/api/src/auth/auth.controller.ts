@@ -7,6 +7,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { EnableMfaDto } from './dto/enable-mfa.dto';
+import { DisableMfaDto } from './dto/disable-mfa.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -66,5 +68,23 @@ export class AuthController {
   @Post('accept-invite')
   acceptInvite(@Body() dto: AcceptInviteDto, @Ip() ip: string) {
     return this.authService.acceptInvite(dto, ip);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('mfa/setup')
+  setupMfa(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.setupMfa(user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('mfa/enable')
+  enableMfa(@CurrentUser() user: AuthenticatedUser, @Body() dto: EnableMfaDto, @Ip() ip: string) {
+    return this.authService.enableMfa(user, dto, ip);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('mfa/disable')
+  disableMfa(@CurrentUser() user: AuthenticatedUser, @Body() dto: DisableMfaDto, @Ip() ip: string) {
+    return this.authService.disableMfa(user, dto, ip);
   }
 }

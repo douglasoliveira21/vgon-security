@@ -59,7 +59,11 @@ export function clearSession() {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+    public body?: Record<string, unknown>,
+  ) {
     super(message);
   }
 }
@@ -87,7 +91,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
         window.location.href = '/login';
       }
     }
-    throw new ApiError(res.status, body.message ?? 'Request failed');
+    throw new ApiError(res.status, body.message ?? 'Request failed', body);
   }
 
   if (res.status === 204) return undefined as T;

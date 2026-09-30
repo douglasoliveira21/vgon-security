@@ -11,7 +11,7 @@ describe('AuthService.resetPassword / acceptInvite', () => {
     const auditLog = jest.fn();
     const prisma = { userActionToken: { findUnique, update }, user: { update }, $transaction } as any;
     const audit = { log: auditLog } as any;
-    const service = new AuthService(prisma, {} as any, audit, {} as any, {} as any);
+    const service = new AuthService(prisma, {} as any, audit, {} as any, {} as any, {} as any);
     return { service };
   };
 

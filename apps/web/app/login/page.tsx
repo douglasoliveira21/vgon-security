@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { apiFetch, ApiError, setSession } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { LanguageSwitch } from '@/lib/LanguageSwitch';
+import { Turnstile } from '@/lib/Turnstile';
 import { Icon } from '@/lib/icons';
 
 interface LoginResponse {
@@ -20,8 +21,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaToken, setMfaToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const needsCaptcha = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -30,7 +36,13 @@ export default function LoginPage() {
     try {
       const res = await apiFetch<LoginResponse>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password, rememberMe }),
+        body: JSON.stringify({
+          email,
+          password,
+          rememberMe,
+          turnstileToken: turnstileToken ?? undefined,
+          mfaToken: mfaRequired ? mfaToken : undefined,
+        }),
       });
       setSession(
         res.accessToken,
@@ -45,7 +57,12 @@ export default function LoginPage() {
       );
       router.replace('/dashboard');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('login.failed'));
+      if (err instanceof ApiError && err.body?.mfaRequired) {
+        setMfaRequired(true);
+        setError(mfaRequired ? t('login.mfaInvalid') : null);
+      } else {
+        setError(err instanceof ApiError ? err.message : t('login.failed'));
+      }
     } finally {
       setLoading(false);
     }
@@ -90,65 +107,118 @@ export default function LoginPage() {
               </span>
               <span className="text-lg font-semibold">{t('app.name')}</span>
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{t('login.title')}</h1>
-            <p className="mb-8 mt-1 text-sm text-slate-500">{t('login.subtitle')}</p>
 
-            <label htmlFor="email" className="label">{t('login.email')}</label>
-            <input
-              id="email"
-              type="email"
-              required
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input mb-4"
-            />
+            {mfaRequired ? (
+              <>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{t('login.mfaTitle')}</h1>
+                <p className="mb-8 mt-1 text-sm text-slate-500">{t('login.mfaSubtitle')}</p>
 
-            <div className="mb-1 flex items-center justify-between">
-              <label htmlFor="password" className="label">{t('login.password')}</label>
-              <Link href="/forgot-password" className="text-xs font-medium text-brand hover:underline">
-                {t('login.forgotPassword')}
-              </Link>
-            </div>
-            <div className="relative mb-5">
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600"
-              >
-                <Icon name={showPassword ? 'eyeOff' : 'eye'} className="h-4 w-4" />
-              </button>
-            </div>
+                <label htmlFor="mfaToken" className="label">{t('login.mfaCode')}</label>
+                <input
+                  id="mfaToken"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  maxLength={6}
+                  autoFocus
+                  value={mfaToken}
+                  onChange={(e) => setMfaToken(e.target.value.replace(/\D/g, ''))}
+                  className="input mb-5 text-center text-lg tracking-[0.5em]"
+                  placeholder="000000"
+                />
 
-            <label className="mb-5 flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
-              />
-              {t('login.rememberMe')}
-            </label>
+                {error && (
+                  <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+                    {error}
+                  </p>
+                )}
 
-            {error && (
-              <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-                {error}
-              </p>
+                <button type="submit" disabled={loading || mfaToken.length !== 6} className="btn-primary w-full py-2.5">
+                  {loading ? t('login.submitting') : t('login.mfaVerify')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMfaRequired(false);
+                    setMfaToken('');
+                    setError(null);
+                  }}
+                  className="mt-4 block w-full text-center text-sm font-medium text-brand hover:underline"
+                >
+                  {t('login.mfaBack')}
+                </button>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{t('login.title')}</h1>
+                <p className="mb-8 mt-1 text-sm text-slate-500">{t('login.subtitle')}</p>
+
+                <label htmlFor="email" className="label">{t('login.email')}</label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input mb-4"
+                />
+
+                <div className="mb-1 flex items-center justify-between">
+                  <label htmlFor="password" className="label">{t('login.password')}</label>
+                  <Link href="/forgot-password" className="text-xs font-medium text-brand hover:underline">
+                    {t('login.forgotPassword')}
+                  </Link>
+                </div>
+                <div className="relative mb-5">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600"
+                  >
+                    <Icon name={showPassword ? 'eyeOff' : 'eye'} className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <label className="mb-5 flex items-center gap-2 text-sm text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+                  />
+                  {t('login.rememberMe')}
+                </label>
+
+                <Turnstile onVerify={setTurnstileToken} />
+
+                {error && (
+                  <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading || (needsCaptcha && !turnstileToken)}
+                  className="btn-primary w-full py-2.5"
+                >
+                  {loading ? t('login.submitting') : t('login.submit')}
+                </button>
+              </>
             )}
-
-            <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
-              {loading ? t('login.submitting') : t('login.submit')}
-            </button>
           </form>
         </div>
       </main>
