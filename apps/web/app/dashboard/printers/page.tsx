@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useDevices } from '@/lib/useDevices';
 import { useClientFilter } from '@/lib/ClientFilter';
+import { Icon } from '@/lib/icons';
 import { EmptyRow, ErrorBanner, LoadingRow, PageHeader, Timestamp } from '@/lib/ui';
 
 interface PrinterEventRow {
@@ -25,6 +26,7 @@ export default function PrintersPage() {
   const { clientId } = useClientFilter();
   const [deviceId, setDeviceId] = useState('');
   const [events, setEvents] = useState<PrinterEventRow[]>([]);
+  const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,11 +53,21 @@ export default function PrintersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, deviceId]);
 
+  const visible = events.filter((e) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return `${e.data.user ?? ''} ${e.data.printerName ?? ''} ${e.data.documentName ?? ''}`.toLowerCase().includes(q);
+  });
+
   return (
     <div>
       <PageHeader title={t('printers.title')} subtitle={t('printers.subtitle')} meta={t('common.refreshEvery', { seconds: 15 })} />
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-64">
+          <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input className="input pl-9" placeholder={t('printers.search')} value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
         <select className="input w-auto" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
           <option value="">{t('common.allDevices')}</option>
           {devices.map((d) => (
@@ -80,8 +92,10 @@ export default function PrintersPage() {
           </thead>
           <tbody>
             {loading && <LoadingRow colSpan={6} />}
-            {!loading && events.length === 0 && <EmptyRow colSpan={6} icon="printer">{t('printers.empty')}</EmptyRow>}
-            {events.map((e) => (
+            {!loading && visible.length === 0 && (
+              <EmptyRow colSpan={6} icon="printer">{events.length === 0 ? t('printers.empty') : t('printers.noMatch')}</EmptyRow>
+            )}
+            {visible.map((e) => (
               <tr key={e.id} className="align-top hover:bg-slate-50">
                 <td><Timestamp iso={e.occurredAt} /></td>
                 <td className="font-medium text-slate-800">{nameOf(e.deviceId)}</td>

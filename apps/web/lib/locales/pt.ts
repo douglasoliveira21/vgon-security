@@ -197,7 +197,7 @@ export const pt: Record<TranslationKey, string> = {
   // Events
   'events.title': 'Linha do tempo de eventos',
   'events.subtitle': 'Atividade reportada pelos Agentes, do mais recente ao mais antigo. Clique em uma linha para ver os detalhes.',
-  'events.search': 'Buscar eventos...',
+  'events.search': 'Buscar eventos ou usuário...',
   'events.allCategories': 'Todas as categorias',
   'events.anySeverity': 'Qualquer gravidade',
   'events.hideHeartbeats': 'Ocultar heartbeats',
@@ -298,6 +298,8 @@ export const pt: Record<TranslationKey, string> = {
   'files.col.path': 'Caminho',
   'files.col.size': 'Tamanho',
   'files.empty': 'Nenhuma atividade de arquivos ainda.',
+  'files.search': 'Buscar por usuário, nome ou caminho...',
+  'files.noMatch': 'Nenhuma atividade de arquivos corresponde à busca.',
   'files.action.file.created': 'Criado',
   'files.action.file.modified': 'Modificado',
   'files.action.file.renamed': 'Renomeado',
@@ -312,6 +314,8 @@ export const pt: Record<TranslationKey, string> = {
   'usb.col.capacity': 'Capacidade',
   'usb.col.policy': 'Política',
   'usb.empty': 'Nenhuma atividade USB ainda. O Agente registra os dispositivos USB conectados depois que ele iniciou (e a remoção deles) — conecte um em um computador cadastrado e ele aparece aqui em segundos.',
+  'usb.search': 'Buscar por usuário, modelo ou número de série...',
+  'usb.noMatch': 'Nenhuma atividade USB corresponde à busca.',
   'usb.connected': 'Conectado',
   'usb.disconnected': 'Desconectado',
   'usb.decision.ALLOWED': 'Permitido',
@@ -325,6 +329,8 @@ export const pt: Record<TranslationKey, string> = {
   'printers.col.document': 'Documento',
   'printers.col.pages': 'Páginas',
   'printers.empty': 'Nenhuma impressão registrada ainda. O Agente registra os trabalhos que passam pela fila de impressão do Windows depois que ele iniciou — imprima algo em um computador cadastrado e aparece aqui.',
+  'printers.search': 'Buscar por usuário, impressora ou documento...',
+  'printers.noMatch': 'Nenhuma impressão corresponde à busca.',
 
   // Hardware
   'hardware.title': 'Inventário de hardware',
@@ -336,11 +342,12 @@ export const pt: Record<TranslationKey, string> = {
   'hardware.col.last': 'Último inventário',
   'hardware.cores': '{n} núcleos',
   'hardware.empty': 'Nenhum inventário de hardware reportado ainda.',
+  'hardware.noMatch': 'Nenhum dispositivo corresponde à busca.',
 
   // Software
   'software.title': 'Inventário de softwares',
   'software.subtitle': 'Aplicativos instalados nos computadores cadastrados.',
-  'software.search': 'Buscar por nome...',
+  'software.search': 'Buscar por nome ou usuário logado...',
   'software.col.name': 'Nome',
   'software.col.version': 'Versão',
   'software.col.publisher': 'Fabricante',

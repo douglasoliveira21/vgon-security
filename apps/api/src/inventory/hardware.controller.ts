@@ -21,7 +21,7 @@ export class HardwareController {
   ) {
     return this.prisma.device.findMany({
       where: { tenantId: user.tenantId, id: deviceId, ...clientScopeWhere(user, clientId) }, // tenantId always from the JWT
-      select: { id: true, hostname: true, hardware: true, lastInventoryAt: true },
+      select: { id: true, hostname: true, hardware: true, lastInventoryAt: true, loggedInUser: true },
       orderBy: { hostname: 'asc' },
     });
   }

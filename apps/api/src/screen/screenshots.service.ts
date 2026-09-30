@@ -76,7 +76,7 @@ export class ScreenshotsService {
   async latestPerDevice(actor: AuthenticatedUser, requestedClientId?: string) {
     const devices = await this.prisma.device.findMany({
       where: { tenantId: actor.tenantId, ...clientScopeWhere(actor, requestedClientId) },
-      select: { id: true, hostname: true },
+      select: { id: true, hostname: true, loggedInUser: true },
     });
     const results = await Promise.all(
       devices.map(async (d) => {
@@ -87,6 +87,7 @@ export class ScreenshotsService {
         return {
           deviceId: d.id,
           hostname: d.hostname,
+          loggedInUser: d.loggedInUser,
           capturedAt: latest?.capturedAt ?? null,
           imageBase64: latest ? latest.image.toString('base64') : null,
         };

@@ -7,6 +7,7 @@ import { TranslationKey } from '@/lib/locales/en';
 import { useDevices } from '@/lib/useDevices';
 import { useClientFilter } from '@/lib/ClientFilter';
 import { formatBytes } from '@/lib/events';
+import { Icon } from '@/lib/icons';
 import { Badge, EmptyRow, ErrorBanner, LoadingRow, PageHeader, Timestamp, Tone } from '@/lib/ui';
 
 interface FileEventRow {
@@ -37,6 +38,7 @@ export default function FilesPage() {
   const { clientId } = useClientFilter();
   const [deviceId, setDeviceId] = useState('');
   const [events, setEvents] = useState<FileEventRow[]>([]);
+  const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -76,6 +78,12 @@ export default function FilesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, deviceId]);
 
+  const visible = events.filter((e) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return `${e.data.user ?? ''} ${e.data.name ?? ''} ${e.data.path ?? ''}`.toLowerCase().includes(q);
+  });
+
   return (
     <div>
       <PageHeader
@@ -84,7 +92,11 @@ export default function FilesPage() {
         meta={t('common.refreshEvery', { seconds: 15 })}
       />
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-64">
+          <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input className="input pl-9" placeholder={t('files.search')} value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
         <select className="input w-auto" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
           <option value="">{t('common.allDevices')}</option>
           {devices.map((d) => (
@@ -109,8 +121,10 @@ export default function FilesPage() {
           </thead>
           <tbody>
             {loading && <LoadingRow colSpan={6} />}
-            {!loading && events.length === 0 && <EmptyRow colSpan={6} icon="file">{t('files.empty')}</EmptyRow>}
-            {events.map((e) => (
+            {!loading && visible.length === 0 && (
+              <EmptyRow colSpan={6} icon="file">{events.length === 0 ? t('files.empty') : t('files.noMatch')}</EmptyRow>
+            )}
+            {visible.map((e) => (
               <tr key={e.id} className="align-top hover:bg-slate-50">
                 <td><Timestamp iso={e.occurredAt} /></td>
                 <td className="font-medium text-slate-800">{nameOf(e.deviceId)}</td>

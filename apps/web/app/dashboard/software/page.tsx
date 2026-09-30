@@ -20,7 +20,7 @@ interface SoftwareRow {
 
 export default function SoftwarePage() {
   const { t, formatDateTime } = useI18n();
-  const { devices, nameOf } = useDevices();
+  const { devices, nameOf, userOf } = useDevices();
   const { clientId } = useClientFilter();
   const [deviceId, setDeviceId] = useState('');
   const [items, setItems] = useState<SoftwareRow[]>([]);
@@ -97,12 +97,13 @@ export default function SoftwarePage() {
               <th>{t('software.col.publisher')}</th>
               <th>{t('software.col.arch')}</th>
               <th>{t('common.device')}</th>
+              <th>{t('devices.col.loggedInUser')}</th>
               <th>{t('software.col.lastSeen')}</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <LoadingRow colSpan={6} />}
-            {!loading && items.length === 0 && <EmptyRow colSpan={6} icon="package">{t('software.empty')}</EmptyRow>}
+            {loading && <LoadingRow colSpan={7} />}
+            {!loading && items.length === 0 && <EmptyRow colSpan={7} icon="package">{t('software.empty')}</EmptyRow>}
             {items.map((s) => (
               <tr key={s.id} className="align-top hover:bg-slate-50">
                 <td className="font-medium text-slate-900">{s.name}</td>
@@ -110,6 +111,7 @@ export default function SoftwarePage() {
                 <td className="text-slate-600">{s.publisher ?? '—'}</td>
                 <td className="text-slate-600">{s.architecture ?? '—'}</td>
                 <td>{nameOf(s.deviceId)}</td>
+                <td className="text-slate-600">{userOf(s.deviceId) ?? <span className="text-slate-400">{t('devices.noUserLoggedIn')}</span>}</td>
                 <td className="whitespace-nowrap text-slate-600">{formatDateTime(s.lastSeenAt)}</td>
               </tr>
             ))}

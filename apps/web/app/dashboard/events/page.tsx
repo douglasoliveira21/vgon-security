@@ -67,7 +67,8 @@ export default function EventsPage() {
       if (types && !types.includes(e.eventType)) return false;
       if (severity && e.severity !== severity) return false;
       if (q) {
-        const hay = `${eventMeta(e.eventType, i18n).label} ${summarize(e, i18n)} ${nameOf(e.deviceId)}`.toLowerCase();
+        const user = typeof e.data?.user === 'string' ? e.data.user : '';
+        const hay = `${eventMeta(e.eventType, i18n).label} ${summarize(e, i18n)} ${nameOf(e.deviceId)} ${user}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;

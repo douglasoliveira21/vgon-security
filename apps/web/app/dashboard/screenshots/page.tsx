@@ -10,6 +10,7 @@ import { ErrorBanner, PageHeader } from '@/lib/ui';
 interface LatestRow {
   deviceId: string;
   hostname: string | null;
+  loggedInUser: string | null;
   capturedAt: string | null;
   imageBase64: string | null;
 }
@@ -47,6 +48,7 @@ function DeviceCard({ row, onOpen }: { row: LatestRow; onOpen: () => void }) {
       </div>
       <div className="p-3">
         <div className="truncate font-medium text-slate-800">{row.hostname ?? row.deviceId.slice(0, 8)}</div>
+        <div className="truncate text-xs text-slate-500">{row.loggedInUser ?? t('devices.noUserLoggedIn')}</div>
         <div className="text-xs text-slate-400">{row.capturedAt ? relativeTime(row.capturedAt) : t('screenshots.noneYet')}</div>
       </div>
     </button>
@@ -176,7 +178,10 @@ export default function ScreenshotsPage() {
   }, [clientId]);
 
   const visibleRows = search.trim()
-    ? rows.filter((r) => (r.hostname ?? r.deviceId).toLowerCase().includes(search.trim().toLowerCase()))
+    ? rows.filter((r) => {
+        const q = search.trim().toLowerCase();
+        return (r.hostname ?? r.deviceId).toLowerCase().includes(q) || (r.loggedInUser ?? '').toLowerCase().includes(q);
+      })
     : rows;
 
   return (

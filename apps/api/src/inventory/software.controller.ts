@@ -20,7 +20,14 @@ export class SoftwareController {
       where: {
         tenantId: user.tenantId,
         deviceId: query.deviceId,
-        name: query.name ? { contains: query.name, mode: 'insensitive' } : undefined,
+        // Matches either the software's own name or the device's current logged-in user — one
+        // search box on the dashboard covers both, same as Files/USB/Printers already do.
+        OR: query.name
+          ? [
+              { name: { contains: query.name, mode: 'insensitive' } },
+              { device: { loggedInUser: { contains: query.name, mode: 'insensitive' } } },
+            ]
+          : undefined,
         removedAt: query.includeRemoved ? undefined : null,
         ...deviceClientScopeWhere(user, query.clientId),
       },

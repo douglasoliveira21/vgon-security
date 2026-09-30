@@ -196,7 +196,7 @@ export const en = {
   // Events
   'events.title': 'Event timeline',
   'events.subtitle': 'Activity reported by the Agents, newest first. Click a row for details.',
-  'events.search': 'Search events...',
+  'events.search': 'Search events or user...',
   'events.allCategories': 'All categories',
   'events.anySeverity': 'Any severity',
   'events.hideHeartbeats': 'Hide heartbeats',
@@ -297,6 +297,8 @@ export const en = {
   'files.col.path': 'Path',
   'files.col.size': 'Size',
   'files.empty': 'No file activity yet.',
+  'files.search': 'Search by user, name or path...',
+  'files.noMatch': 'No file activity matches your search.',
   'files.action.file.created': 'Created',
   'files.action.file.modified': 'Modified',
   'files.action.file.renamed': 'Renamed',
@@ -311,6 +313,8 @@ export const en = {
   'usb.col.capacity': 'Capacity',
   'usb.col.policy': 'Policy',
   'usb.empty': 'No USB activity yet. The Agent records USB devices plugged in after it started (and their removal) — plug one in on an enrolled computer and it shows up here within seconds.',
+  'usb.search': 'Search by user, model or serial...',
+  'usb.noMatch': 'No USB activity matches your search.',
   'usb.connected': 'Connected',
   'usb.disconnected': 'Disconnected',
   'usb.decision.ALLOWED': 'Allowed',
@@ -324,6 +328,8 @@ export const en = {
   'printers.col.document': 'Document',
   'printers.col.pages': 'Pages',
   'printers.empty': 'No print jobs yet. The Agent records jobs that pass through the Windows print queue after it started — print something on an enrolled computer and it shows up here.',
+  'printers.search': 'Search by user, printer or document...',
+  'printers.noMatch': 'No print jobs match your search.',
 
   // Hardware
   'hardware.title': 'Hardware inventory',
@@ -335,11 +341,12 @@ export const en = {
   'hardware.col.last': 'Last inventory',
   'hardware.cores': '{n} cores',
   'hardware.empty': 'No hardware inventory reported yet.',
+  'hardware.noMatch': 'No devices match your search.',
 
   // Software
   'software.title': 'Software inventory',
   'software.subtitle': 'Applications installed on the enrolled computers.',
-  'software.search': 'Search by name...',
+  'software.search': 'Search by name or logged-in user...',
   'software.col.name': 'Name',
   'software.col.version': 'Version',
   'software.col.publisher': 'Publisher',

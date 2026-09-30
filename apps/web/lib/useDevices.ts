@@ -7,6 +7,7 @@ import { useClientFilter } from '@/lib/ClientFilter';
 export interface DeviceName {
   id: string;
   hostname: string | null;
+  loggedInUser: string | null;
 }
 
 /** Loads the tenant's devices (respecting the dashboard's global client filter) so event rows
@@ -26,5 +27,6 @@ export function useDevices() {
   }, [clientId]);
 
   const nameOf = (deviceId: string) => devices.find((d) => d.id === deviceId)?.hostname ?? deviceId.slice(0, 8);
-  return { devices, nameOf };
+  const userOf = (deviceId: string) => devices.find((d) => d.id === deviceId)?.loggedInUser ?? null;
+  return { devices, nameOf, userOf };
 }
