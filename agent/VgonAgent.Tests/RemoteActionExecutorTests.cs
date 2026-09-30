@@ -12,6 +12,10 @@ public sealed class FakeSystemActions : ISystemActions
     public int LockCalls { get; private set; }
     public bool LockResult { get; set; } = true;
     public int ExitCalls { get; private set; }
+    public int RestartDeviceCalls { get; private set; }
+    public bool RestartDeviceResult { get; set; } = true;
+    public int WipeDeviceCalls { get; private set; }
+    public bool WipeDeviceResult { get; set; } = true;
 
     public bool LockActiveSession()
     {
@@ -20,6 +24,18 @@ public sealed class FakeSystemActions : ISystemActions
     }
 
     public void ExitForRestart() => ExitCalls++;
+
+    public bool RestartDevice()
+    {
+        RestartDeviceCalls++;
+        return RestartDeviceResult;
+    }
+
+    public bool WipeDevice()
+    {
+        WipeDeviceCalls++;
+        return WipeDeviceResult;
+    }
 }
 
 public sealed class FakeScreenViewSessionRunner : IScreenViewSessionRunner
@@ -133,6 +149,52 @@ public sealed class RemoteActionExecutorTests : IDisposable
         // Exiting is the polling service's job, AFTER it reports completion to the Cloud —
         // the executor itself must never call it directly.
         Assert.Equal(0, systemActions.ExitCalls);
+    }
+
+    [Fact]
+    public async Task RESTART_DEVICE_schedules_a_reboot_via_system_actions()
+    {
+        var (executor, systemActions, _, _, _, _) = MakeExecutor();
+
+        var result = await executor.ExecuteAsync(Action(RemoteActionType.RestartDevice), CancellationToken.None);
+
+        Assert.Equal(1, systemActions.RestartDeviceCalls);
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task RESTART_DEVICE_reports_failure_when_scheduling_the_reboot_fails()
+    {
+        var (executor, systemActions, _, _, _, _) = MakeExecutor();
+        systemActions.RestartDeviceResult = false;
+
+        var result = await executor.ExecuteAsync(Action(RemoteActionType.RestartDevice), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.NotNull(result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task WIPE_DEVICE_launches_the_factory_reset_via_system_actions()
+    {
+        var (executor, systemActions, _, _, _, _) = MakeExecutor();
+
+        var result = await executor.ExecuteAsync(Action(RemoteActionType.WipeDevice), CancellationToken.None);
+
+        Assert.Equal(1, systemActions.WipeDeviceCalls);
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task WIPE_DEVICE_reports_failure_when_launching_the_reset_fails()
+    {
+        var (executor, systemActions, _, _, _, _) = MakeExecutor();
+        systemActions.WipeDeviceResult = false;
+
+        var result = await executor.ExecuteAsync(Action(RemoteActionType.WipeDevice), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.NotNull(result.ErrorMessage);
     }
 
     [Fact]

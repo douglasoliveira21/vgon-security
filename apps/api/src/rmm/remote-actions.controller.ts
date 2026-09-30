@@ -1,5 +1,5 @@
-import { Body, Controller, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
-import { Permission, RemoteActionStatus, RemoteActionType } from '@vgon/shared';
+import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
+import { Permission, RemoteActionStatus, RemoteActionType, ROLE_PERMISSIONS, Role } from '@vgon/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ScreenSessionsService } from '../screen/screen-sessions.service';
@@ -36,6 +36,16 @@ export class RemoteActionsController {
     });
     if (!device) throw new NotFoundException('Device not found');
 
+    // WIPE_DEVICE is irreversible and far more consequential than every other action this
+    // endpoint accepts — DEVICES_MANAGE alone (which every other action requires) is not enough
+    // for it; the caller's role must separately carry DEVICES_WIPE.
+    if (dto.type === RemoteActionType.WIPE_DEVICE) {
+      const granted = ROLE_PERMISSIONS[user.role as Role] ?? [];
+      if (!granted.includes(Permission.DEVICES_WIPE)) {
+        throw new ForbiddenException('Insufficient permissions to wipe a device');
+      }
+    }
+
     const action = await this.prisma.remoteAction.create({
       data: {
         tenantId: user.tenantId,
@@ -49,7 +59,9 @@ export class RemoteActionsController {
       tenantId: user.tenantId,
       actorId: user.userId,
       actorEmail: user.email,
-      action: 'remote_action.requested',
+      // Distinct action name for the one irreversible case, so it stands out in an audit search
+      // rather than blending into every other (recoverable) remote action requested.
+      action: dto.type === RemoteActionType.WIPE_DEVICE ? 'device.wipe_requested' : 'remote_action.requested',
       resource: `remote_action:${action.id}`,
       result: 'SUCCESS',
       metadata: { deviceId, type: dto.type },

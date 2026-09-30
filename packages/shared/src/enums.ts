@@ -24,6 +24,9 @@ export enum Permission {
   // DEVICES_MANAGE since it's meaningfully more sensitive than other device management actions
   // and an org may want to grant it to a narrower set of roles.
   SCREEN_VIEW = 'screen.view',
+  // WIPE_DEVICE only: irreversibly erases the device. Kept separate from — and far more
+  // restricted than — DEVICES_MANAGE, which covers every other (recoverable) remote action.
+  DEVICES_WIPE = 'devices.wipe',
 }
 
 // Default role -> permission mapping. Kept in code (not DB) for Phase 1;
@@ -145,6 +148,8 @@ export enum RemoteActionType {
   REFRESH_POLICY = 'REFRESH_POLICY',
   COLLECT_INVENTORY = 'COLLECT_INVENTORY',
   RESTART_AGENT = 'RESTART_AGENT',
+  // A full OS reboot (shutdown.exe /r), not just the Agent process — see RESTART_AGENT for that.
+  RESTART_DEVICE = 'RESTART_DEVICE',
   LOCK_SESSION = 'LOCK_SESSION',
   // View-only live screen session (section "RMM extensions"): the Agent streams JPEG frames of
   // the active desktop while a visible on-screen banner is shown for the duration. No input
@@ -155,6 +160,9 @@ export enum RemoteActionType {
   // unlike START_SCREEN_VIEW above) — wakes it immediately instead of waiting for its next
   // interval, the same ICollectionTrigger pattern COLLECT_INVENTORY already uses.
   CAPTURE_SCREENSHOT = 'CAPTURE_SCREENSHOT',
+  // Irreversible: triggers Windows' own full factory-reset flow (systemreset.exe -factoryreset),
+  // erasing all data on the device. Gated by Permission.DEVICES_WIPE, not DEVICES_MANAGE.
+  WIPE_DEVICE = 'WIPE_DEVICE',
 }
 
 export enum RemoteActionStatus {

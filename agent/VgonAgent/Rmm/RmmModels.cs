@@ -31,6 +31,8 @@ public static class RemoteActionType
     public const string RefreshPolicy = "REFRESH_POLICY";
     public const string CollectInventory = "COLLECT_INVENTORY";
     public const string RestartAgent = "RESTART_AGENT";
+    public const string RestartDevice = "RESTART_DEVICE";
+    public const string WipeDevice = "WIPE_DEVICE";
     public const string LockSession = "LOCK_SESSION";
     public const string StartScreenView = "START_SCREEN_VIEW";
     public const string CaptureScreenshot = "CAPTURE_SCREENSHOT";

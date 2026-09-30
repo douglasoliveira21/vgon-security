@@ -11,4 +11,15 @@ public interface ISystemActions
     /// configured (see the Agent README), the Service Control Manager restarts it — this call
     /// itself does not restart anything, it only stops the current process.</summary>
     void ExitForRestart();
+
+    /// <summary>Schedules a full OS reboot of the machine (not just the Agent process). Returns
+    /// whether the reboot was successfully scheduled — the reboot itself happens after the delay,
+    /// asynchronously, so a true result here does not guarantee the machine actually restarts
+    /// (e.g. a pending shutdown block from another process).</summary>
+    bool RestartDevice();
+
+    /// <summary>Irreversibly erases the device via Windows' own full factory-reset flow. Returns
+    /// whether the reset was successfully launched — the actual wipe happens after a reboot into
+    /// WinRE, asynchronously, so a true result here is not a guarantee the wipe itself completes.</summary>
+    bool WipeDevice();
 }

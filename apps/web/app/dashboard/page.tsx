@@ -7,6 +7,7 @@ import { TranslationKey } from '@/lib/locales/en';
 import { Icon } from '@/lib/icons';
 import { EmptyRow, ErrorBanner, LoadingRow, PageHeader, StatCard, StatusBadge, SuccessBanner } from '@/lib/ui';
 import { LiveScreenViewer } from '@/lib/LiveScreenViewer';
+import { WipeDeviceModal } from '@/lib/WipeDeviceModal';
 import { useClientFilter } from '@/lib/ClientFilter';
 
 interface Device {
@@ -25,7 +26,11 @@ interface ProvisioningTokenResponse {
   expiresAt: string;
 }
 
-const ACTION_TYPES = ['REFRESH_POLICY', 'COLLECT_INVENTORY', 'CAPTURE_SCREENSHOT', 'RESTART_AGENT', 'LOCK_SESSION'] as const;
+const ACTION_TYPES = ['REFRESH_POLICY', 'COLLECT_INVENTORY', 'CAPTURE_SCREENSHOT', 'RESTART_AGENT', 'RESTART_DEVICE', 'LOCK_SESSION'] as const;
+
+// Actions that disrupt whoever is using the device right now get an extra confirmation click —
+// unlike the others here, which are silent or (for LOCK_SESSION) merely require re-authentication.
+const DISRUPTIVE_ACTIONS: ReadonlySet<string> = new Set(['RESTART_DEVICE']);
 
 export default function DashboardPage() {
   const { t, formatDateTime, relativeTime } = useI18n();
@@ -39,6 +44,7 @@ export default function DashboardPage() {
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [viewingScreen, setViewingScreen] = useState<{ id: string; name: string } | null>(null);
+  const [wipingDevice, setWipingDevice] = useState<{ id: string; name: string } | null>(null);
   const [search, setSearch] = useState('');
 
   async function loadDevices() {
@@ -86,8 +92,14 @@ export default function DashboardPage() {
     ? devices.filter((d) => (d.hostname ?? '').toLowerCase().includes(search.trim().toLowerCase()))
     : devices;
 
-  async function runAction(deviceId: string) {
+  async function runAction(deviceId: string, hostname: string | null) {
     const type = selectedAction[deviceId] ?? ACTION_TYPES[0];
+    if (DISRUPTIVE_ACTIONS.has(type)) {
+      const name = hostname ?? deviceId.slice(0, 8);
+      if (!window.confirm(t('devices.action.confirmDisruptive', { action: t(`devices.action.${type}` as TranslationKey), device: name }))) {
+        return;
+      }
+    }
     setRunningAction(deviceId);
     setActionMessage(null);
     try {
@@ -232,7 +244,7 @@ export default function DashboardPage() {
                         <option key={a} value={a}>{t(`devices.action.${a}` as TranslationKey)}</option>
                       ))}
                     </select>
-                    <button onClick={() => runAction(d.id)} disabled={runningAction === d.id} className="btn-secondary btn-sm">
+                    <button onClick={() => runAction(d.id, d.hostname)} disabled={runningAction === d.id} className="btn-secondary btn-sm">
                       {runningAction === d.id ? t('devices.queuing') : t('devices.run')}
                     </button>
                     <button
@@ -242,6 +254,13 @@ export default function DashboardPage() {
                       title={d.status !== 'ONLINE' ? t('devices.viewScreen.offline') : t('devices.viewScreen')}
                     >
                       <Icon name="eye" className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setWipingDevice({ id: d.id, name: d.hostname ?? d.id.slice(0, 8) })}
+                      className="btn-secondary btn-sm text-red-600 hover:bg-red-50"
+                      title={t('devices.wipe.button')}
+                    >
+                      <Icon name="alert" className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => removeDevice(d)}
@@ -260,6 +279,18 @@ export default function DashboardPage() {
 
       {viewingScreen && (
         <LiveScreenViewer deviceId={viewingScreen.id} deviceName={viewingScreen.name} onClose={() => setViewingScreen(null)} />
+      )}
+
+      {wipingDevice && (
+        <WipeDeviceModal
+          deviceId={wipingDevice.id}
+          deviceName={wipingDevice.name}
+          onClose={() => setWipingDevice(null)}
+          onWiped={() => {
+            setWipingDevice(null);
+            setActionMessage(t('devices.wipe.queued', { device: wipingDevice.name }));
+          }}
+        />
       )}
     </div>
   );

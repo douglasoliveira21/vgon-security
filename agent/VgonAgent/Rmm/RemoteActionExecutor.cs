@@ -76,6 +76,21 @@ public sealed class RemoteActionExecutor
                     // and won't get another chance to call the completion endpoint.
                     return new RemoteActionResult(true, null, null);
 
+                case RemoteActionType.RestartDevice:
+                    var scheduled = _systemActions.RestartDevice();
+                    return scheduled
+                        ? new RemoteActionResult(true, new { delaySeconds = 60 }, null)
+                        : new RemoteActionResult(false, null, "Failed to schedule the restart");
+
+                case RemoteActionType.WipeDevice:
+                    // Deliberately no policy/collector interaction beyond this single call — the
+                    // Cloud-side permission check (Permission.DEVICES_WIPE) is what actually gates
+                    // who can ever get this action created in the first place.
+                    var wiped = _systemActions.WipeDevice();
+                    return wiped
+                        ? new RemoteActionResult(true, null, null)
+                        : new RemoteActionResult(false, null, "Failed to launch the factory reset");
+
                 case RemoteActionType.CaptureScreenshot:
                     // Wakes ScreenshotCollector immediately — same silent, no-banner capture as
                     // its periodic run, just on demand instead of waiting out the interval.
