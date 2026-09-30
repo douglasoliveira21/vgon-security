@@ -66,9 +66,12 @@ Same repo, another **+ Service → App**.
 
 ```
 NEXT_PUBLIC_API_URL=https://<api-app-domain>/api/v1
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=<your Turnstile site key>
 ```
 
 Next.js inlines `NEXT_PUBLIC_*` variables into the browser bundle at build time. Setting it as a runtime environment variable does nothing — the already-built JavaScript won't see it. Use the **public** domain of the API app from step 2 (the browser calls this directly), never the internal service name (`vgon-api:4000` is not reachable from the visitor's browser).
+
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` is optional — only set it if you want the Cloudflare Turnstile captcha on the login form; leave it unset to keep the login form exactly as it is today. If you do set it, also set the matching `TURNSTILE_SECRET_KEY` (a *Runtime* env var, not a build arg) on the **API** app — both come from the same Cloudflare Turnstile site.
 
 Deploy it, then assign its own domain.
 
@@ -94,7 +97,7 @@ This creates the `acme-demo` tenant with an OWNER and ANALYST login (see [README
 
 ## Gotchas specific to this split
 
-- **Rebuild, not just redeploy, the web app** whenever `NEXT_PUBLIC_API_URL` changes (e.g. you move the API to a custom domain later) — it's baked into static assets.
+- **Rebuild, not just redeploy, the web app** whenever `NEXT_PUBLIC_API_URL` or `NEXT_PUBLIC_TURNSTILE_SITE_KEY` changes (e.g. you move the API to a custom domain, or turn the captcha on/off later) — both are baked into static assets. In EasyPanel this means triggering a new build, not just restarting the running container.
 - The web app and the API never talk to each other directly; the browser is the only thing that calls the API (client components using `fetch`). So the API's `WEB_ORIGIN` (CORS) must exactly match the web app's public origin, and the web app's `NEXT_PUBLIC_API_URL` must be a URL the visitor's browser can reach — both are public URLs, not internal service names.
 - The worker app talks to nothing but Postgres and Redis — it has no `WEB_ORIGIN`/CORS concern and no public domain at all.
 - If you rotate `JWT_ACCESS_SECRET` or `AGENT_JWT_SECRET`, every logged-in user and every enrolled Agent is signed out / loses its access token simultaneously (refresh tokens for Agents still work since those aren't JWTs — the Agent will just get a new access token on its next `/agents/token/refresh` call). The worker app doesn't need either secret and is unaffected.

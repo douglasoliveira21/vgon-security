@@ -1,7 +1,9 @@
 # NEXT_PUBLIC_* variables are inlined into the client bundle at BUILD time, not read at
-# container startup — so NEXT_PUBLIC_API_URL must be passed as a build arg (EasyPanel: set it
-# under the app's "Build Args", not just "Environment Variables") pointing at the PUBLIC URL
-# of the API service (its EasyPanel domain), not an internal service name.
+# container startup — so every one of them must be passed as a build arg (EasyPanel: set it
+# under the app's "Build Args", not just "Environment Variables"), not just a regular env var,
+# or it silently never reaches the bundle. NEXT_PUBLIC_API_URL points at the PUBLIC URL of the
+# API service (its EasyPanel domain), not an internal service name; NEXT_PUBLIC_TURNSTILE_SITE_KEY
+# is optional — leave it unset to keep the login captcha disabled (see TurnstileService).
 FROM node:20-alpine AS build
 WORKDIR /repo
 COPY package.json package-lock.json* ./
@@ -10,7 +12,9 @@ RUN npm install --workspace apps/web --include-workspace-root
 COPY apps/web apps/web
 
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
 RUN npm run build --workspace apps/web
 
 FROM node:20-alpine AS runtime
