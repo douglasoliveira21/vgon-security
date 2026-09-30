@@ -90,7 +90,10 @@ export default function DashboardPage() {
   }
 
   const visibleDevices = search.trim()
-    ? devices.filter((d) => (d.hostname ?? '').toLowerCase().includes(search.trim().toLowerCase()))
+    ? devices.filter((d) => {
+        const q = search.trim().toLowerCase();
+        return (d.hostname ?? '').toLowerCase().includes(q) || (d.loggedInUser ?? '').toLowerCase().includes(q);
+      })
     : devices;
 
   async function runAction(deviceId: string, hostname: string | null) {

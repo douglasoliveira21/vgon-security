@@ -128,7 +128,7 @@ export const en = {
   'devices.online': 'Online',
   'devices.attention': 'Need attention',
   'devices.addDevice': 'Add a device',
-  'devices.search': 'Search by device name...',
+  'devices.search': 'Search by device name or logged-in user...',
   'devices.token.button': 'Generate install token',
   'devices.token.title': 'Install token (shown only once)',
   'devices.token.expires': 'Expires at {date}',
