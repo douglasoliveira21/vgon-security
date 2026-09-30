@@ -135,6 +135,8 @@ export const pt: Record<TranslationKey, string> = {
   'devices.token.expires': 'Expira em {date}',
   'devices.token.how': 'Instale o Agente (MSI) no computador e cole este token quando o instalador pedir.',
   'devices.col.hostname': 'Computador',
+  'devices.col.loggedInUser': 'Usuário logado',
+  'devices.noUserLoggedIn': 'Ninguém logado',
   'devices.col.os': 'Sistema',
   'devices.col.agent': 'Agente',
   'devices.col.lastSeen': 'Última atividade',

@@ -182,6 +182,10 @@ model Device {
   agentVersion    String?
   os              String?
   osVersion       String?
+  // The account logged into the device's active console session as of the last heartbeat — a
+  // point-in-time snapshot, not a history (that lives in Event via session.login/logout, once a
+  // collector emits those). Cleared to null when nobody is logged in (locked console, no session).
+  loggedInUser    String?
   lastSeenAt      DateTime?
   lastHeartbeat   Json?
   policyVersion   String?

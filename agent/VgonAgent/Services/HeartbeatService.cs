@@ -9,6 +9,7 @@ using VgonAgent.Http;
 using VgonAgent.Identity;
 using VgonAgent.Models;
 using VgonAgent.Policy;
+using VgonAgent.Rmm;
 
 namespace VgonAgent.Services;
 
@@ -56,6 +57,7 @@ public sealed class HeartbeatService : BackgroundService
                     CollectorStatus = _collectorStatus.Snapshot() as Dictionary<string, string>
                         ?? new Dictionary<string, string>(_collectorStatus.Snapshot()),
                     PolicyVersion = _policyStore.Current.Version.ToString(),
+                    LoggedInUser = ActiveSessionLocator.GetActiveSessionUserName(),
                 }, stoppingToken);
 
                 _logger.LogDebug("Heartbeat sent");

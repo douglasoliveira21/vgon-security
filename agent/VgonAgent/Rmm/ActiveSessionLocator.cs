@@ -13,6 +13,31 @@ namespace VgonAgent.Rmm;
 [SupportedOSPlatform("windows")]
 internal static class ActiveSessionLocator
 {
+    /// <summary>The account name logged into the active console session right now, or null if
+    /// nobody is (locked console with no session, RDP disconnected, kiosk boot screen, ...). Used
+    /// for the "logged-in user" shown alongside the hostname in the Devices list — see
+    /// HeartbeatService.</summary>
+    public static string? GetActiveSessionUserName()
+    {
+        var sessionId = FindActiveSessionId();
+        if (sessionId is null) return null;
+
+        if (!WTSQuerySessionInformation(IntPtr.Zero, sessionId.Value, WTS_INFO_CLASS.WTSUserName, out var buffer, out _))
+        {
+            return null;
+        }
+
+        try
+        {
+            var userName = Marshal.PtrToStringUni(buffer);
+            return string.IsNullOrEmpty(userName) ? null : userName;
+        }
+        finally
+        {
+            WTSFreeMemory(buffer);
+        }
+    }
+
     public static int? FindActiveSessionId()
     {
         if (!WTSEnumerateSessions(IntPtr.Zero, 0, 1, out var sessionsPtr, out var count))
@@ -61,8 +86,17 @@ internal static class ActiveSessionLocator
         WTSInit,
     }
 
+    private enum WTS_INFO_CLASS
+    {
+        WTSUserName = 5,
+    }
+
     [DllImport("wtsapi32.dll")]
     private static extern bool WTSEnumerateSessions(IntPtr hServer, int reserved, int version, out IntPtr sessionInfo, out int count);
+
+    [DllImport("wtsapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool WTSQuerySessionInformation(
+        IntPtr hServer, int sessionId, WTS_INFO_CLASS wtsInfoClass, out IntPtr ppBuffer, out int pBytesReturned);
 
     [DllImport("wtsapi32.dll")]
     private static extern void WTSFreeMemory(IntPtr memory);

@@ -134,6 +134,8 @@ export const en = {
   'devices.token.expires': 'Expires at {date}',
   'devices.token.how': 'Install the Agent (MSI) on the computer and paste this token when the installer asks for it.',
   'devices.col.hostname': 'Computer',
+  'devices.col.loggedInUser': 'Logged-in user',
+  'devices.noUserLoggedIn': 'No one logged in',
   'devices.col.os': 'System',
   'devices.col.agent': 'Agent',
   'devices.col.lastSeen': 'Last seen',

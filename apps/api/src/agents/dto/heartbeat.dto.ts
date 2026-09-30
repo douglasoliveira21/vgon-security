@@ -26,4 +26,8 @@ export class HeartbeatDto {
   @IsOptional()
   @IsString()
   policyVersion?: string;
+
+  @IsOptional()
+  @IsString()
+  loggedInUser?: string;
 }

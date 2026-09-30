@@ -202,6 +202,10 @@ export class AgentsService {
         agentVersion: dto.agentVersion,
         os: dto.os,
         policyVersion: dto.policyVersion,
+        // null when nobody's logged in right now (locked console, no session) — not left stale
+        // from whoever was last logged in, since dto.loggedInUser itself is already null in that
+        // case (see HeartbeatService.LoggedInUser on the Agent side).
+        loggedInUser: dto.loggedInUser ?? null,
         status: DeviceStatus.ONLINE,
         lastHeartbeat: dto as any,
       },

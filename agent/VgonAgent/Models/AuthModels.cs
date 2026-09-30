@@ -63,6 +63,9 @@ public sealed class HeartbeatRequest
 
     [JsonPropertyName("policyVersion")]
     public string? PolicyVersion { get; init; }
+
+    [JsonPropertyName("loggedInUser")]
+    public string? LoggedInUser { get; init; }
 }
 
 public sealed class IngestEventsRequest

@@ -16,6 +16,7 @@ interface Device {
   status: string;
   os: string | null;
   agentVersion: string | null;
+  loggedInUser: string | null;
   lastSeenAt: string | null;
   clientId: string | null;
   client: { id: string; name: string } | null;
@@ -193,6 +194,7 @@ export default function DashboardPage() {
           <thead>
             <tr>
               <th>{t('devices.col.hostname')}</th>
+              <th>{t('devices.col.loggedInUser')}</th>
               <th>{t('common.status')}</th>
               <th>{t('clients.title')}</th>
               <th>{t('devices.col.os')}</th>
@@ -202,13 +204,16 @@ export default function DashboardPage() {
             </tr>
           </thead>
           <tbody>
-            {loading && <LoadingRow colSpan={7} />}
+            {loading && <LoadingRow colSpan={8} />}
             {!loading && visibleDevices.length === 0 && (
-              <EmptyRow colSpan={7} icon="devices">{t('devices.empty')}</EmptyRow>
+              <EmptyRow colSpan={8} icon="devices">{t('devices.empty')}</EmptyRow>
             )}
             {visibleDevices.map((d) => (
               <tr key={d.id} className="hover:bg-slate-50">
                 <td className="font-medium text-slate-900">{d.hostname ?? '—'}</td>
+                <td className="text-slate-600">
+                  {d.loggedInUser ? d.loggedInUser : <span className="text-slate-400">{t('devices.noUserLoggedIn')}</span>}
+                </td>
                 <td><StatusBadge status={d.status} /></td>
                 <td>
                   <select
